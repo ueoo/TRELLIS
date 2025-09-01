@@ -1,10 +1,12 @@
 from typing import *
+
 import torch
 import torch.nn as nn
-from ...modules.utils import convert_module_to_f16, convert_module_to_f32
+
 from ...modules import sparse as sp
-from ...modules.transformer import AbsolutePositionEmbedder
 from ...modules.sparse.transformer import SparseTransformerBlock
+from ...modules.transformer import AbsolutePositionEmbedder
+from ...modules.utils import convert_module_to_f16, convert_module_to_f32
 
 
 def block_attn_config(self):
@@ -29,6 +31,7 @@ class SparseTransformerBase(nn.Module):
     Sparse Transformer without output layers.
     Serve as the base class for encoder and decoder.
     """
+
     def __init__(
         self,
         in_channels: int,
@@ -62,22 +65,24 @@ class SparseTransformerBase(nn.Module):
             self.pos_embedder = AbsolutePositionEmbedder(model_channels)
 
         self.input_layer = sp.SparseLinear(in_channels, model_channels)
-        self.blocks = nn.ModuleList([
-            SparseTransformerBlock(
-                model_channels,
-                num_heads=self.num_heads,
-                mlp_ratio=self.mlp_ratio,
-                attn_mode=attn_mode,
-                window_size=window_size,
-                shift_sequence=shift_sequence,
-                shift_window=shift_window,
-                serialize_mode=serialize_mode,
-                use_checkpoint=self.use_checkpoint,
-                use_rope=(pe_mode == "rope"),
-                qk_rms_norm=self.qk_rms_norm,
-            )
-            for attn_mode, window_size, shift_sequence, shift_window, serialize_mode in block_attn_config(self)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                SparseTransformerBlock(
+                    model_channels,
+                    num_heads=self.num_heads,
+                    mlp_ratio=self.mlp_ratio,
+                    attn_mode=attn_mode,
+                    window_size=window_size,
+                    shift_sequence=shift_sequence,
+                    shift_window=shift_window,
+                    serialize_mode=serialize_mode,
+                    use_checkpoint=self.use_checkpoint,
+                    use_rope=(pe_mode == "rope"),
+                    qk_rms_norm=self.qk_rms_norm,
+                )
+                for attn_mode, window_size, shift_sequence, shift_window, serialize_mode in block_attn_config(self)
+            ]
+        )
 
     @property
     def device(self) -> torch.device:
@@ -105,6 +110,7 @@ class SparseTransformerBase(nn.Module):
                 torch.nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
         self.apply(_basic_init)
 
     def forward(self, x: sp.SparseTensor) -> sp.SparseTensor:

@@ -1,12 +1,14 @@
 from typing import *
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+
 from ...modules import sparse as sp
-from .base import SparseTransformerBase
 from ...representations import Strivec
 from ..sparse_elastic_mixin import SparseTransformerElasticMixin
+from .base import SparseTransformerBase
 
 
 class SLatRadianceFieldDecoder(SparseTransformerBase):
@@ -58,16 +60,19 @@ class SLatRadianceFieldDecoder(SparseTransformerBase):
 
     def _calc_layout(self) -> None:
         self.layout = {
-            'trivec': {'shape': (self.rep_config['rank'], 3, self.rep_config['dim']), 'size': self.rep_config['rank'] * 3 * self.rep_config['dim']},
-            'density': {'shape': (self.rep_config['rank'],), 'size': self.rep_config['rank']},
-            'features_dc': {'shape': (self.rep_config['rank'], 1, 3), 'size': self.rep_config['rank'] * 3},
+            "trivec": {
+                "shape": (self.rep_config["rank"], 3, self.rep_config["dim"]),
+                "size": self.rep_config["rank"] * 3 * self.rep_config["dim"],
+            },
+            "density": {"shape": (self.rep_config["rank"],), "size": self.rep_config["rank"]},
+            "features_dc": {"shape": (self.rep_config["rank"], 1, 3), "size": self.rep_config["rank"] * 3},
         }
         start = 0
         for k, v in self.layout.items():
-            v['range'] = (start, start + v['size'])
-            start += v['size']
-        self.out_channels = start    
-    
+            v["range"] = (start, start + v["size"])
+            start += v["size"]
+        self.out_channels = start
+
     def to_representation(self, x: sp.SparseTensor) -> List[Strivec]:
         """
         Convert a batch of network outputs to 3D representations.
@@ -84,15 +89,19 @@ class SLatRadianceFieldDecoder(SparseTransformerBase):
                 sh_degree=0,
                 resolution=self.resolution,
                 aabb=[-0.5, -0.5, -0.5, 1, 1, 1],
-                rank=self.rep_config['rank'],
-                dim=self.rep_config['dim'],
-                device='cuda',
+                rank=self.rep_config["rank"],
+                dim=self.rep_config["dim"],
+                device="cuda",
             )
             representation.density_shift = 0.0
             representation.position = (x.coords[x.layout[i]][:, 1:].float() + 0.5) / self.resolution
-            representation.depth = torch.full((representation.position.shape[0], 1), int(np.log2(self.resolution)), dtype=torch.uint8, device='cuda')
+            representation.depth = torch.full(
+                (representation.position.shape[0], 1), int(np.log2(self.resolution)), dtype=torch.uint8, device="cuda"
+            )
             for k, v in self.layout.items():
-                setattr(representation, k, x.feats[x.layout[i]][:, v['range'][0]:v['range'][1]].reshape(-1, *v['shape']))
+                setattr(
+                    representation, k, x.feats[x.layout[i]][:, v["range"][0] : v["range"][1]].reshape(-1, *v["shape"])
+                )
             representation.trivec = representation.trivec + 1
             ret.append(representation)
         return ret
@@ -110,4 +119,5 @@ class ElasticSLatRadianceFieldDecoder(SparseTransformerElasticMixin, SLatRadianc
     Slat VAE Radiance Field Decoder with elastic memory management.
     Used for training with low VRAM.
     """
+
     pass

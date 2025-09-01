@@ -1,19 +1,16 @@
 import torch
 import torch.nn as nn
+
 from . import SparseTensor
 
-__all__ = [
-    'SparseReLU',
-    'SparseSiLU',
-    'SparseGELU',
-    'SparseActivation'
-]
+
+__all__ = ["SparseReLU", "SparseSiLU", "SparseGELU", "SparseActivation"]
 
 
 class SparseReLU(nn.ReLU):
     def forward(self, input: SparseTensor) -> SparseTensor:
         return input.replace(super().forward(input.feats))
-    
+
 
 class SparseSiLU(nn.SiLU):
     def forward(self, input: SparseTensor) -> SparseTensor:
@@ -32,4 +29,3 @@ class SparseActivation(nn.Module):
 
     def forward(self, input: SparseTensor) -> SparseTensor:
         return input.replace(self.activation(input.feats))
-    

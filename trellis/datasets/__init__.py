@@ -1,24 +1,23 @@
 import importlib
 
+
 __attributes = {
-    'SparseStructure': 'sparse_structure',
-    
-    'SparseFeat2Render': 'sparse_feat2render',
-    'SLat2Render':'structured_latent2render',
-    'Slat2RenderGeo':'structured_latent2render',
-    
-    'SparseStructureLatent': 'sparse_structure_latent',
-    'TextConditionedSparseStructureLatent': 'sparse_structure_latent',
-    'ImageConditionedSparseStructureLatent': 'sparse_structure_latent',
-    
-    'SLat': 'structured_latent',
-    'TextConditionedSLat': 'structured_latent',
-    'ImageConditionedSLat': 'structured_latent',
+    "SparseStructure": "sparse_structure",
+    "SparseFeat2Render": "sparse_feat2render",
+    "SLat2Render": "structured_latent2render",
+    "Slat2RenderGeo": "structured_latent2render",
+    "SparseStructureLatent": "sparse_structure_latent",
+    "TextConditionedSparseStructureLatent": "sparse_structure_latent",
+    "ImageConditionedSparseStructureLatent": "sparse_structure_latent",
+    "SLat": "structured_latent",
+    "TextConditionedSLat": "structured_latent",
+    "ImageConditionedSLat": "structured_latent",
 }
 
 __submodules = []
 
 __all__ = list(__attributes.keys()) + __submodules
+
 
 def __getattr__(name):
     if name not in globals():
@@ -35,24 +34,13 @@ def __getattr__(name):
 
 
 # For Pylance
-if __name__ == '__main__':
-    from .sparse_structure import SparseStructure
-    
+if __name__ == "__main__":
     from .sparse_feat2render import SparseFeat2Render
-    from .structured_latent2render import (
-        SLat2Render,
-        Slat2RenderGeo,
-    )
-    
+    from .sparse_structure import SparseStructure
     from .sparse_structure_latent import (
+        ImageConditionedSparseStructureLatent,
         SparseStructureLatent,
         TextConditionedSparseStructureLatent,
-        ImageConditionedSparseStructureLatent,
     )
-    
-    from .structured_latent import (
-        SLat,
-        TextConditionedSLat,
-        ImageConditionedSLat,
-    )
-    
+    from .structured_latent import ImageConditionedSLat, SLat, TextConditionedSLat
+    from .structured_latent2render import SLat2Render, Slat2RenderGeo

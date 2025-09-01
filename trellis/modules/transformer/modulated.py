@@ -1,6 +1,8 @@
 from typing import *
+
 import torch
 import torch.nn as nn
+
 from ..attention import MultiHeadAttention
 from ..norm import LayerNorm32
 from .blocks import FeedForwardNet
@@ -10,6 +12,7 @@ class ModulatedTransformerBlock(nn.Module):
     """
     Transformer block (MSA + FFN) with adaptive layer norm conditioning.
     """
+
     def __init__(
         self,
         channels: int,
@@ -44,10 +47,7 @@ class ModulatedTransformerBlock(nn.Module):
             mlp_ratio=mlp_ratio,
         )
         if not share_mod:
-            self.adaLN_modulation = nn.Sequential(
-                nn.SiLU(),
-                nn.Linear(channels, 6 * channels, bias=True)
-            )
+            self.adaLN_modulation = nn.Sequential(nn.SiLU(), nn.Linear(channels, 6 * channels, bias=True))
 
     def _forward(self, x: torch.Tensor, mod: torch.Tensor) -> torch.Tensor:
         if self.share_mod:
@@ -77,6 +77,7 @@ class ModulatedTransformerCrossBlock(nn.Module):
     """
     Transformer cross-attention block (MSA + MCA + FFN) with adaptive layer norm conditioning.
     """
+
     def __init__(
         self,
         channels: int,
@@ -124,10 +125,7 @@ class ModulatedTransformerCrossBlock(nn.Module):
             mlp_ratio=mlp_ratio,
         )
         if not share_mod:
-            self.adaLN_modulation = nn.Sequential(
-                nn.SiLU(),
-                nn.Linear(channels, 6 * channels, bias=True)
-            )
+            self.adaLN_modulation = nn.Sequential(nn.SiLU(), nn.Linear(channels, 6 * channels, bias=True))
 
     def _forward(self, x: torch.Tensor, mod: torch.Tensor, context: torch.Tensor):
         if self.share_mod:
@@ -154,4 +152,3 @@ class ModulatedTransformerCrossBlock(nn.Module):
             return torch.utils.checkpoint.checkpoint(self._forward, x, mod, context, use_reentrant=False)
         else:
             return self._forward(x, mod, context)
-        

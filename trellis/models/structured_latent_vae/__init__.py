@@ -1,4 +1,4 @@
-from .encoder import SLatEncoder, ElasticSLatEncoder
-from .decoder_gs import SLatGaussianDecoder, ElasticSLatGaussianDecoder
-from .decoder_rf import SLatRadianceFieldDecoder, ElasticSLatRadianceFieldDecoder
-from .decoder_mesh import SLatMeshDecoder, ElasticSLatMeshDecoder
+from .decoder_gs import ElasticSLatGaussianDecoder, SLatGaussianDecoder
+from .decoder_mesh import ElasticSLatMeshDecoder, SLatMeshDecoder
+from .decoder_rf import ElasticSLatRadianceFieldDecoder, SLatRadianceFieldDecoder
+from .encoder import ElasticSLatEncoder, SLatEncoder

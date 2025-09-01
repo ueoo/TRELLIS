@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
+
 from . import SparseTensor
 
-__all__ = [
-    'SparseLinear'
-]
+
+__all__ = ["SparseLinear"]
 
 
 class SparseLinear(nn.Linear):

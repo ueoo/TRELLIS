@@ -1,5 +1,5 @@
-from typing import *
 from abc import ABC, abstractmethod
+from typing import *
 
 
 class Sampler(ABC):
@@ -8,13 +8,8 @@ class Sampler(ABC):
     """
 
     @abstractmethod
-    def sample(
-        self,
-        model,
-        **kwargs
-    ):
+    def sample(self, model, **kwargs):
         """
         Sample from a model.
         """
         pass
-    

@@ -1,12 +1,14 @@
 from typing import *
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from ...modules import sparse as sp
-from ...utils.random_utils import hammersley_sequence
-from .base import SparseTransformerBase
 from ...representations import Gaussian
+from ...utils.random_utils import hammersley_sequence
 from ..sparse_elastic_mixin import SparseTransformerElasticMixin
+from .base import SparseTransformerBase
 
 
 class SLatGaussianDecoder(SparseTransformerBase):
@@ -58,26 +60,35 @@ class SLatGaussianDecoder(SparseTransformerBase):
         nn.init.constant_(self.out_layer.bias, 0)
 
     def _build_perturbation(self) -> None:
-        perturbation = [hammersley_sequence(3, i, self.rep_config['num_gaussians']) for i in range(self.rep_config['num_gaussians'])]
+        perturbation = [
+            hammersley_sequence(3, i, self.rep_config["num_gaussians"])
+            for i in range(self.rep_config["num_gaussians"])
+        ]
         perturbation = torch.tensor(perturbation).float() * 2 - 1
-        perturbation = perturbation / self.rep_config['voxel_size']
+        perturbation = perturbation / self.rep_config["voxel_size"]
         perturbation = torch.atanh(perturbation).to(self.device)
-        self.register_buffer('offset_perturbation', perturbation)
+        self.register_buffer("offset_perturbation", perturbation)
 
     def _calc_layout(self) -> None:
         self.layout = {
-            '_xyz' : {'shape': (self.rep_config['num_gaussians'], 3), 'size': self.rep_config['num_gaussians'] * 3},
-            '_features_dc' : {'shape': (self.rep_config['num_gaussians'], 1, 3), 'size': self.rep_config['num_gaussians'] * 3},
-            '_scaling' : {'shape': (self.rep_config['num_gaussians'], 3), 'size': self.rep_config['num_gaussians'] * 3},
-            '_rotation' : {'shape': (self.rep_config['num_gaussians'], 4), 'size': self.rep_config['num_gaussians'] * 4},
-            '_opacity' : {'shape': (self.rep_config['num_gaussians'], 1), 'size': self.rep_config['num_gaussians']},
+            "_xyz": {"shape": (self.rep_config["num_gaussians"], 3), "size": self.rep_config["num_gaussians"] * 3},
+            "_features_dc": {
+                "shape": (self.rep_config["num_gaussians"], 1, 3),
+                "size": self.rep_config["num_gaussians"] * 3,
+            },
+            "_scaling": {"shape": (self.rep_config["num_gaussians"], 3), "size": self.rep_config["num_gaussians"] * 3},
+            "_rotation": {
+                "shape": (self.rep_config["num_gaussians"], 4),
+                "size": self.rep_config["num_gaussians"] * 4,
+            },
+            "_opacity": {"shape": (self.rep_config["num_gaussians"], 1), "size": self.rep_config["num_gaussians"]},
         }
         start = 0
         for k, v in self.layout.items():
-            v['range'] = (start, start + v['size'])
-            start += v['size']
+            v["range"] = (start, start + v["size"])
+            start += v["size"]
         self.out_channels = start
-    
+
     def to_representation(self, x: sp.SparseTensor) -> List[Gaussian]:
         """
         Convert a batch of network outputs to 3D representations.
@@ -93,24 +104,26 @@ class SLatGaussianDecoder(SparseTransformerBase):
             representation = Gaussian(
                 sh_degree=0,
                 aabb=[-0.5, -0.5, -0.5, 1.0, 1.0, 1.0],
-                mininum_kernel_size = self.rep_config['3d_filter_kernel_size'],
-                scaling_bias = self.rep_config['scaling_bias'],
-                opacity_bias = self.rep_config['opacity_bias'],
-                scaling_activation = self.rep_config['scaling_activation']
+                mininum_kernel_size=self.rep_config["3d_filter_kernel_size"],
+                scaling_bias=self.rep_config["scaling_bias"],
+                opacity_bias=self.rep_config["opacity_bias"],
+                scaling_activation=self.rep_config["scaling_activation"],
             )
             xyz = (x.coords[x.layout[i]][:, 1:].float() + 0.5) / self.resolution
             for k, v in self.layout.items():
-                if k == '_xyz':
-                    offset = x.feats[x.layout[i]][:, v['range'][0]:v['range'][1]].reshape(-1, *v['shape'])
-                    offset = offset * self.rep_config['lr'][k]
-                    if self.rep_config['perturb_offset']:
+                if k == "_xyz":
+                    offset = x.feats[x.layout[i]][:, v["range"][0] : v["range"][1]].reshape(-1, *v["shape"])
+                    offset = offset * self.rep_config["lr"][k]
+                    if self.rep_config["perturb_offset"]:
                         offset = offset + self.offset_perturbation
-                    offset = torch.tanh(offset) / self.resolution * 0.5 * self.rep_config['voxel_size']
+                    offset = torch.tanh(offset) / self.resolution * 0.5 * self.rep_config["voxel_size"]
                     _xyz = xyz.unsqueeze(1) + offset
                     setattr(representation, k, _xyz.flatten(0, 1))
                 else:
-                    feats = x.feats[x.layout[i]][:, v['range'][0]:v['range'][1]].reshape(-1, *v['shape']).flatten(0, 1)
-                    feats = feats * self.rep_config['lr'][k]
+                    feats = (
+                        x.feats[x.layout[i]][:, v["range"][0] : v["range"][1]].reshape(-1, *v["shape"]).flatten(0, 1)
+                    )
+                    feats = feats * self.rep_config["lr"][k]
                     setattr(representation, k, feats)
             ret.append(representation)
         return ret
@@ -121,11 +134,12 @@ class SLatGaussianDecoder(SparseTransformerBase):
         h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
         h = self.out_layer(h)
         return self.to_representation(h)
-    
+
 
 class ElasticSLatGaussianDecoder(SparseTransformerElasticMixin, SLatGaussianDecoder):
     """
     Slat VAE Gaussian decoder with elastic memory management.
     Used for training with low VRAM.
     """
+
     pass

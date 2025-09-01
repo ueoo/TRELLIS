@@ -1,6 +1,8 @@
 from typing import *
+
 import torch
 import torch.nn as nn
+
 from ..attention import MultiHeadAttention
 from ..norm import LayerNorm32
 
@@ -9,14 +11,15 @@ class AbsolutePositionEmbedder(nn.Module):
     """
     Embeds spatial positions into vector representations.
     """
+
     def __init__(self, channels: int, in_channels: int = 3):
         super().__init__()
         self.channels = channels
         self.in_channels = in_channels
         self.freq_dim = channels // in_channels // 2
         self.freqs = torch.arange(self.freq_dim, dtype=torch.float32) / self.freq_dim
-        self.freqs = 1.0 / (10000 ** self.freqs)
-        
+        self.freqs = 1.0 / (10000**self.freqs)
+
     def _sin_cos_embedding(self, x: torch.Tensor) -> torch.Tensor:
         """
         Create sinusoidal position embeddings.
@@ -63,6 +66,7 @@ class TransformerBlock(nn.Module):
     """
     Transformer block (MSA + FFN).
     """
+
     def __init__(
         self,
         channels: int,
@@ -116,6 +120,7 @@ class TransformerCrossBlock(nn.Module):
     """
     Transformer cross-attention block (MSA + MCA + FFN).
     """
+
     def __init__(
         self,
         channels: int,
@@ -179,4 +184,3 @@ class TransformerCrossBlock(nn.Module):
             return torch.utils.checkpoint.checkpoint(self._forward, x, context, use_reentrant=False)
         else:
             return self._forward(x, context)
-        

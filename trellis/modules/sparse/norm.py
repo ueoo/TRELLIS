@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
-from . import SparseTensor
-from . import DEBUG
+
+from . import DEBUG, SparseTensor
+
 
 __all__ = [
-    'SparseGroupNorm',
-    'SparseLayerNorm',
-    'SparseGroupNorm32',
-    'SparseLayerNorm32',
+    "SparseGroupNorm",
+    "SparseLayerNorm",
+    "SparseGroupNorm32",
+    "SparseLayerNorm32",
 ]
 
 
@@ -47,12 +48,15 @@ class SparseGroupNorm32(SparseGroupNorm):
     """
     A GroupNorm layer that converts to float32 before the forward pass.
     """
+
     def forward(self, x: SparseTensor) -> SparseTensor:
         return super().forward(x.float()).type(x.dtype)
+
 
 class SparseLayerNorm32(SparseLayerNorm):
     """
     A LayerNorm layer that converts to float32 before the forward pass.
     """
+
     def forward(self, x: SparseTensor) -> SparseTensor:
         return super().forward(x.float()).type(x.dtype)

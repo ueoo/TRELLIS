@@ -1,21 +1,24 @@
 from typing import *
+
+import cv2
+import igraph
 import numpy as np
-import torch
-import utils3d
 import nvdiffrast.torch as dr
-from tqdm import tqdm
+import pyvista as pv
+import torch
 import trimesh
 import trimesh.visual
+import utils3d
 import xatlas
-import pyvista as pv
-from pymeshfix import _meshfix
-import igraph
-import cv2
+
 from PIL import Image
+from pymeshfix import _meshfix
+from tqdm import tqdm
+
+from ..renderers import GaussianRenderer
+from ..representations import Gaussian, MeshExtractResult, Strivec
 from .random_utils import sphere_hammersley_sequence
 from .render_utils import render_multiview
-from ..renderers import GaussianRenderer
-from ..representations import Strivec, Gaussian, MeshExtractResult
 
 
 @torch.no_grad()
@@ -78,7 +81,7 @@ def _fill_holes(
         face_id = torch.unique(face_id).long()
         visblity[face_id] += 1
     visblity = visblity.float() / num_views
-    
+
     # Mincut
     ## construct outer faces
     edges, face2edge, edge_degrees = utils3d.torch.compute_edges(faces)
@@ -88,14 +91,14 @@ def _fill_holes(
     for i in range(len(connected_components)):
         outer_face_indices[connected_components[i]] = visblity[connected_components[i]] > min(max(visblity[connected_components[i]].quantile(0.75).item(), 0.25), 0.5)
     outer_face_indices = outer_face_indices.nonzero().reshape(-1)
-    
+
     ## construct inner faces
     inner_face_indices = torch.nonzero(visblity == 0).reshape(-1)
     if verbose:
         tqdm.write(f'Found {inner_face_indices.shape[0]} invisible faces')
     if inner_face_indices.shape[0] == 0:
         return verts, faces
-    
+
     ## Construct dual graph (faces as nodes, edges as edges)
     dual_edges, dual_edge2edge = utils3d.torch.compute_dual_graph(face2edge)
     dual_edge2edge = edges[dual_edge2edge]
@@ -109,23 +112,23 @@ def _fill_holes(
     g.add_vertices(faces.shape[0])
     g.add_edges(dual_edges.cpu().numpy())
     g.es['weight'] = dual_edges_weights.cpu().numpy()
-    
+
     ### source and target
     g.add_vertex('s')
     g.add_vertex('t')
-    
+
     ### connect invisible faces to source
     g.add_edges([(f, 's') for f in inner_face_indices], attributes={'weight': torch.ones(inner_face_indices.shape[0], dtype=torch.float32).cpu().numpy()})
-    
+
     ### connect outer faces to target
     g.add_edges([(f, 't') for f in outer_face_indices], attributes={'weight': torch.ones(outer_face_indices.shape[0], dtype=torch.float32).cpu().numpy()})
-                
+
     ### solve mincut
     cut = g.mincut('s', 't', (np.array(g.es['weight']) * 1000).tolist())
     remove_face_indices = torch.tensor([v for v in cut.partition[0] if v < faces.shape[0]], dtype=torch.long, device=faces.device)
     if verbose:
         tqdm.write(f'Mincut solved, start checking the cut')
-    
+
     ### check if the cut is valid with each connected component
     to_remove_cc = utils3d.torch.compute_connected_components(faces[remove_face_indices])
     if debug:
@@ -139,7 +142,7 @@ def _fill_holes(
             tqdm.write(f'visblity_median: {visblity_median}')
         if visblity_median > 0.25:
             continue
-        
+
         #### check if the cuting loop is small enough
         cc_edge_indices, cc_edges_degree = torch.unique(face2edge[remove_face_indices[cc]], return_counts=True)
         cc_boundary_edge_indices = cc_edge_indices[cc_edges_degree == 1]
@@ -157,9 +160,9 @@ def _fill_holes(
                 tqdm.write(f'Area of the cutting loop: {cc_new_boundary_edges_cc_area}')
             if any([l > max_hole_size for l in cc_new_boundary_edges_cc_area]):
                 continue
-            
+
         valid_remove_cc.append(cc)
-        
+
     if debug:
         face_v = verts[faces].mean(dim=1).cpu().numpy()
         vis_dual_edges = dual_edges.cpu().numpy()
@@ -170,12 +173,12 @@ def _fill_holes(
         if len(valid_remove_cc) > 0:
             vis_colors[remove_face_indices[torch.cat(valid_remove_cc)].cpu().numpy()] = [255, 0, 0]
         utils3d.io.write_ply('dbg_dual.ply', face_v, edges=vis_dual_edges, vertex_colors=vis_colors)
-        
+
         vis_verts = verts.cpu().numpy()
         vis_edges = edges[torch.cat(cutting_edges)].cpu().numpy()
         utils3d.io.write_ply('dbg_cut.ply', vis_verts, edges=vis_edges)
-        
-    
+
+
     if len(valid_remove_cc) > 0:
         remove_face_indices = remove_face_indices[torch.cat(valid_remove_cc)]
         mask = torch.ones(faces.shape[0], dtype=torch.bool, device=faces.device)
@@ -187,7 +190,7 @@ def _fill_holes(
     else:
         if verbose:
             tqdm.write(f'Removed 0 faces by mincut')
-            
+
     mesh = _meshfix.PyTMesh()
     mesh.load_array(verts.cpu().numpy(), faces.cpu().numpy())
     mesh.fill_small_boundaries(nbe=max_hole_nbe, refine=True)
@@ -325,7 +328,7 @@ def bake_texture(
                 )
                 uv_map = rast['uv'][0].detach().flip(0)
                 mask = rast['mask'][0].detach().bool() & masks[0]
-            
+
             # nearest neighbor interpolation
             uv_map = (uv_map * texture_size).floor().long()
             obs = observation[mask]
@@ -364,11 +367,11 @@ def bake_texture(
 
         def cosine_anealing(optimizer, step, total_steps, start_lr, end_lr):
             return end_lr + 0.5 * (start_lr - end_lr) * (1 + np.cos(np.pi * step / total_steps))
-        
+
         def tv_loss(texture):
             return torch.nn.functional.l1_loss(texture[:, :-1, :, :], texture[:, 1:, :, :]) + \
                    torch.nn.functional.l1_loss(texture[:, :, :-1, :], texture[:, :, 1:, :])
-    
+
         total_steps = 2500
         with tqdm(total=total_steps, disable=not verbose, desc='Texture baking (opt): optimizing') as pbar:
             for step in range(total_steps):
@@ -421,7 +424,7 @@ def to_glb(
     """
     vertices = mesh.vertices.cpu().numpy()
     faces = mesh.faces.cpu().numpy()
-    
+
     # mesh postprocess
     vertices, faces = postprocess_mesh(
         vertices, faces,
@@ -472,18 +475,18 @@ def simplify_gs(
     """
     Simplify 3D Gaussians
     NOTE: this function is not used in the current implementation for the unsatisfactory performance.
-    
+
     Args:
         gs (Gaussian): 3D Gaussian.
         simplify (float): Ratio of Gaussians to remove in simplification.
     """
     if simplify <= 0:
         return gs
-    
+
     # simplify
     observations, extrinsics, intrinsics = render_multiview(gs, resolution=1024, nviews=100)
     observations = [torch.tensor(obs / 255.0).float().cuda().permute(2, 0, 1) for obs in observations]
-    
+
     # Following https://arxiv.org/pdf/2411.06019
     renderer = GaussianRenderer({
             "resolution": 1024,
@@ -499,7 +502,7 @@ def simplify_gs(
     new_gs._rotation = torch.nn.Parameter(gs._rotation.clone())
     new_gs._scaling = torch.nn.Parameter(gs._scaling.clone())
     new_gs._xyz = torch.nn.Parameter(gs._xyz.clone())
-    
+
     start_lr = [1e-4, 1e-3, 5e-3, 0.025]
     end_lr = [1e-6, 1e-5, 5e-5, 0.00025]
     optimizer = torch.optim.Adam([
@@ -508,19 +511,19 @@ def simplify_gs(
         {"params": new_gs._scaling, "lr": start_lr[2]},
         {"params": new_gs._opacity, "lr": start_lr[3]},
     ], lr=start_lr[0])
-    
+
     def exp_anealing(optimizer, step, total_steps, start_lr, end_lr):
             return start_lr * (end_lr / start_lr) ** (step / total_steps)
 
     def cosine_anealing(optimizer, step, total_steps, start_lr, end_lr):
         return end_lr + 0.5 * (start_lr - end_lr) * (1 + np.cos(np.pi * step / total_steps))
-    
+
     _zeta = new_gs.get_opacity.clone().detach().squeeze()
     _lambda = torch.zeros_like(_zeta)
     _delta = 1e-7
     _interval = 10
     num_target = int((1 - simplify) * _zeta.shape[0])
-    
+
     with tqdm(total=2500, disable=not verbose, desc='Simplifying Gaussian') as pbar:
         for i in range(2500):
             # prune
@@ -546,7 +549,7 @@ def simplify_gs(
                     optimizer.state[param_group['params'][0]] = stored_state
 
             opacity = new_gs.get_opacity.squeeze()
-            
+
             # sparisfy
             if i % _interval == 0:
                 _zeta = _lambda + opacity.detach()
@@ -556,32 +559,32 @@ def simplify_gs(
                     _m[index] = 0
                     _zeta[_m] = 0
                 _lambda = _lambda + opacity.detach() - _zeta
-            
+
             # sample a random view
             view_idx = np.random.randint(len(observations))
             observation = observations[view_idx]
             extrinsic = extrinsics[view_idx]
             intrinsic = intrinsics[view_idx]
-            
+
             color = renderer.render(new_gs, extrinsic, intrinsic)['color']
             rgb_loss = torch.nn.functional.l1_loss(color, observation)
             loss = rgb_loss + \
                    _delta * torch.sum(torch.pow(_lambda + opacity - _zeta, 2))
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             # update lr
             for j in range(len(optimizer.param_groups)):
                 optimizer.param_groups[j]['lr'] = cosine_anealing(optimizer, i, 2500, start_lr[j], end_lr[j])
-            
+
             pbar.set_postfix({'loss': rgb_loss.item(), 'num': opacity.shape[0], 'lambda': _lambda.mean().item()})
             pbar.update()
-            
+
     new_gs._xyz = new_gs._xyz.data
     new_gs._rotation = new_gs._rotation.data
     new_gs._scaling = new_gs._scaling.data
     new_gs._opacity = new_gs._opacity.data
-    
+
     return new_gs

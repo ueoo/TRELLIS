@@ -1,6 +1,3 @@
-from typing import *
-
-
 class ClassifierFreeGuidanceSamplerMixin:
     """
     A mixin class for samplers that apply classifier-free guidance.

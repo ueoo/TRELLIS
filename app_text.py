@@ -1,28 +1,31 @@
-import gradio as gr
-from gradio_litmodel3d import LitModel3D
-
 import os
 import shutil
+
 from typing import *
-import torch
-import numpy as np
+
+import gradio as gr
 import imageio
+import numpy as np
+import torch
+
 from easydict import EasyDict as edict
+from gradio_litmodel3d import LitModel3D
+
 from trellis.pipelines import TrellisTextTo3DPipeline
 from trellis.representations import Gaussian, MeshExtractResult
-from trellis.utils import render_utils, postprocessing_utils
+from trellis.utils import postprocessing_utils, render_utils
 
 
 MAX_SEED = np.iinfo(np.int32).max
-TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')
+TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp")
 os.makedirs(TMP_DIR, exist_ok=True)
 
 
 def start_session(req: gr.Request):
     user_dir = os.path.join(TMP_DIR, str(req.session_hash))
     os.makedirs(user_dir, exist_ok=True)
-    
-    
+
+
 def end_session(req: gr.Request):
     user_dir = os.path.join(TMP_DIR, str(req.session_hash))
     shutil.rmtree(user_dir)
@@ -30,41 +33,41 @@ def end_session(req: gr.Request):
 
 def pack_state(gs: Gaussian, mesh: MeshExtractResult) -> dict:
     return {
-        'gaussian': {
+        "gaussian": {
             **gs.init_params,
-            '_xyz': gs._xyz.cpu().numpy(),
-            '_features_dc': gs._features_dc.cpu().numpy(),
-            '_scaling': gs._scaling.cpu().numpy(),
-            '_rotation': gs._rotation.cpu().numpy(),
-            '_opacity': gs._opacity.cpu().numpy(),
+            "_xyz": gs._xyz.cpu().numpy(),
+            "_features_dc": gs._features_dc.cpu().numpy(),
+            "_scaling": gs._scaling.cpu().numpy(),
+            "_rotation": gs._rotation.cpu().numpy(),
+            "_opacity": gs._opacity.cpu().numpy(),
         },
-        'mesh': {
-            'vertices': mesh.vertices.cpu().numpy(),
-            'faces': mesh.faces.cpu().numpy(),
+        "mesh": {
+            "vertices": mesh.vertices.cpu().numpy(),
+            "faces": mesh.faces.cpu().numpy(),
         },
     }
-    
-    
+
+
 def unpack_state(state: dict) -> Tuple[Gaussian, edict, str]:
     gs = Gaussian(
-        aabb=state['gaussian']['aabb'],
-        sh_degree=state['gaussian']['sh_degree'],
-        mininum_kernel_size=state['gaussian']['mininum_kernel_size'],
-        scaling_bias=state['gaussian']['scaling_bias'],
-        opacity_bias=state['gaussian']['opacity_bias'],
-        scaling_activation=state['gaussian']['scaling_activation'],
+        aabb=state["gaussian"]["aabb"],
+        sh_degree=state["gaussian"]["sh_degree"],
+        mininum_kernel_size=state["gaussian"]["mininum_kernel_size"],
+        scaling_bias=state["gaussian"]["scaling_bias"],
+        opacity_bias=state["gaussian"]["opacity_bias"],
+        scaling_activation=state["gaussian"]["scaling_activation"],
     )
-    gs._xyz = torch.tensor(state['gaussian']['_xyz'], device='cuda')
-    gs._features_dc = torch.tensor(state['gaussian']['_features_dc'], device='cuda')
-    gs._scaling = torch.tensor(state['gaussian']['_scaling'], device='cuda')
-    gs._rotation = torch.tensor(state['gaussian']['_rotation'], device='cuda')
-    gs._opacity = torch.tensor(state['gaussian']['_opacity'], device='cuda')
-    
+    gs._xyz = torch.tensor(state["gaussian"]["_xyz"], device="cuda")
+    gs._features_dc = torch.tensor(state["gaussian"]["_features_dc"], device="cuda")
+    gs._scaling = torch.tensor(state["gaussian"]["_scaling"], device="cuda")
+    gs._rotation = torch.tensor(state["gaussian"]["_rotation"], device="cuda")
+    gs._opacity = torch.tensor(state["gaussian"]["_opacity"], device="cuda")
+
     mesh = edict(
-        vertices=torch.tensor(state['mesh']['vertices'], device='cuda'),
-        faces=torch.tensor(state['mesh']['faces'], device='cuda'),
+        vertices=torch.tensor(state["mesh"]["vertices"], device="cuda"),
+        faces=torch.tensor(state["mesh"]["faces"], device="cuda"),
     )
-    
+
     return gs, mesh
 
 
@@ -113,12 +116,12 @@ def text_to_3d(
             "cfg_strength": slat_guidance_strength,
         },
     )
-    video = render_utils.render_video(outputs['gaussian'][0], num_frames=120)['color']
-    video_geo = render_utils.render_video(outputs['mesh'][0], num_frames=120)['normal']
+    video = render_utils.render_video(outputs["gaussian"][0], num_frames=120)["color"]
+    video_geo = render_utils.render_video(outputs["mesh"][0], num_frames=120)["normal"]
     video = [np.concatenate([video[i], video_geo[i]], axis=1) for i in range(len(video))]
-    video_path = os.path.join(user_dir, 'sample.mp4')
+    video_path = os.path.join(user_dir, "sample.mp4")
     imageio.mimsave(video_path, video, fps=15)
-    state = pack_state(outputs['gaussian'][0], outputs['mesh'][0])
+    state = pack_state(outputs["gaussian"][0], outputs["mesh"][0])
     torch.cuda.empty_cache()
     return state, video_path
 
@@ -143,7 +146,7 @@ def extract_glb(
     user_dir = os.path.join(TMP_DIR, str(req.session_hash))
     gs, mesh = unpack_state(state)
     glb = postprocessing_utils.to_glb(gs, mesh, simplify=mesh_simplify, texture_size=texture_size, verbose=False)
-    glb_path = os.path.join(user_dir, 'sample.glb')
+    glb_path = os.path.join(user_dir, "sample.glb")
     glb.export(glb_path)
     torch.cuda.empty_cache()
     return glb_path, glb_path
@@ -161,23 +164,25 @@ def extract_gaussian(state: dict, req: gr.Request) -> Tuple[str, str]:
     """
     user_dir = os.path.join(TMP_DIR, str(req.session_hash))
     gs, _ = unpack_state(state)
-    gaussian_path = os.path.join(user_dir, 'sample.ply')
+    gaussian_path = os.path.join(user_dir, "sample.ply")
     gs.save_ply(gaussian_path)
     torch.cuda.empty_cache()
     return gaussian_path, gaussian_path
 
 
 with gr.Blocks(delete_cache=(600, 600)) as demo:
-    gr.Markdown("""
+    gr.Markdown(
+        """
     ## Text to 3D Asset with [TRELLIS](https://trellis3d.github.io/)
     * Type a text prompt and click "Generate" to create a 3D asset.
     * If you find the generated 3D asset satisfactory, click "Extract GLB" to extract the GLB file and download it.
-    """)
-    
+    """
+    )
+
     with gr.Row():
         with gr.Column():
             text_prompt = gr.Textbox(label="Text Prompt", lines=5)
-            
+
             with gr.Accordion(label="Generation Settings", open=False):
                 seed = gr.Slider(0, MAX_SEED, label="Seed", value=0, step=1)
                 randomize_seed = gr.Checkbox(label="Randomize Seed", value=True)
@@ -191,26 +196,28 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
                     slat_sampling_steps = gr.Slider(1, 50, label="Sampling Steps", value=25, step=1)
 
             generate_btn = gr.Button("Generate")
-            
+
             with gr.Accordion(label="GLB Extraction Settings", open=False):
                 mesh_simplify = gr.Slider(0.9, 0.98, label="Simplify", value=0.95, step=0.01)
                 texture_size = gr.Slider(512, 2048, label="Texture Size", value=1024, step=512)
-            
+
             with gr.Row():
                 extract_glb_btn = gr.Button("Extract GLB", interactive=False)
                 extract_gs_btn = gr.Button("Extract Gaussian", interactive=False)
-            gr.Markdown("""
+            gr.Markdown(
+                """
                         *NOTE: Gaussian file can be very large (~50MB), it will take a while to display and download.*
-                        """)
+                        """
+            )
 
         with gr.Column():
             video_output = gr.Video(label="Generated 3D Asset", autoplay=True, loop=True, height=300)
             model_output = LitModel3D(label="Extracted GLB/Gaussian", exposure=10.0, height=300)
-            
+
             with gr.Row():
                 download_glb = gr.DownloadButton(label="Download GLB", interactive=False)
-                download_gs = gr.DownloadButton(label="Download Gaussian", interactive=False)  
-    
+                download_gs = gr.DownloadButton(label="Download Gaussian", interactive=False)
+
     output_buf = gr.State()
 
     # Handlers
@@ -223,7 +230,14 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
         outputs=[seed],
     ).then(
         text_to_3d,
-        inputs=[text_prompt, seed, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps],
+        inputs=[
+            text_prompt,
+            seed,
+            ss_guidance_strength,
+            ss_sampling_steps,
+            slat_guidance_strength,
+            slat_sampling_steps,
+        ],
         outputs=[output_buf, video_output],
     ).then(
         lambda: tuple([gr.Button(interactive=True), gr.Button(interactive=True)]),
@@ -243,7 +257,7 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
         lambda: gr.Button(interactive=True),
         outputs=[download_glb],
     )
-    
+
     extract_gs_btn.click(
         extract_gaussian,
         inputs=[output_buf],
@@ -257,7 +271,7 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
         lambda: gr.Button(interactive=False),
         outputs=[download_glb],
     )
-    
+
 
 # Launch the Gradio app
 if __name__ == "__main__":

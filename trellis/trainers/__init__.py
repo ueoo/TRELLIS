@@ -1,28 +1,26 @@
 import importlib
 
+
 __attributes = {
-    'BasicTrainer': 'basic',
-    
-    'SparseStructureVaeTrainer': 'vae.sparse_structure_vae',
-    
-    'SLatVaeGaussianTrainer': 'vae.structured_latent_vae_gaussian',
-    'SLatVaeRadianceFieldDecoderTrainer': 'vae.structured_latent_vae_rf_dec',
-    'SLatVaeMeshDecoderTrainer': 'vae.structured_latent_vae_mesh_dec',
-    
-    'FlowMatchingTrainer': 'flow_matching.flow_matching',
-    'FlowMatchingCFGTrainer': 'flow_matching.flow_matching',
-    'TextConditionedFlowMatchingCFGTrainer': 'flow_matching.flow_matching',
-    'ImageConditionedFlowMatchingCFGTrainer': 'flow_matching.flow_matching',
-    
-    'SparseFlowMatchingTrainer': 'flow_matching.sparse_flow_matching',
-    'SparseFlowMatchingCFGTrainer': 'flow_matching.sparse_flow_matching',
-    'TextConditionedSparseFlowMatchingCFGTrainer': 'flow_matching.sparse_flow_matching',
-    'ImageConditionedSparseFlowMatchingCFGTrainer': 'flow_matching.sparse_flow_matching',
+    "BasicTrainer": "basic",
+    "SparseStructureVaeTrainer": "vae.sparse_structure_vae",
+    "SLatVaeGaussianTrainer": "vae.structured_latent_vae_gaussian",
+    "SLatVaeRadianceFieldDecoderTrainer": "vae.structured_latent_vae_rf_dec",
+    "SLatVaeMeshDecoderTrainer": "vae.structured_latent_vae_mesh_dec",
+    "FlowMatchingTrainer": "flow_matching.flow_matching",
+    "FlowMatchingCFGTrainer": "flow_matching.flow_matching",
+    "TextConditionedFlowMatchingCFGTrainer": "flow_matching.flow_matching",
+    "ImageConditionedFlowMatchingCFGTrainer": "flow_matching.flow_matching",
+    "SparseFlowMatchingTrainer": "flow_matching.sparse_flow_matching",
+    "SparseFlowMatchingCFGTrainer": "flow_matching.sparse_flow_matching",
+    "TextConditionedSparseFlowMatchingCFGTrainer": "flow_matching.sparse_flow_matching",
+    "ImageConditionedSparseFlowMatchingCFGTrainer": "flow_matching.sparse_flow_matching",
 }
 
 __submodules = []
 
 __all__ = list(__attributes.keys()) + __submodules
+
 
 def __getattr__(name):
     if name not in globals():
@@ -39,25 +37,21 @@ def __getattr__(name):
 
 
 # For Pylance
-if __name__ == '__main__':
+if __name__ == "__main__":
     from .basic import BasicTrainer
-
-    from .vae.sparse_structure_vae import SparseStructureVaeTrainer
-
-    from .vae.structured_latent_vae_gaussian import SLatVaeGaussianTrainer
-    from .vae.structured_latent_vae_rf_dec import SLatVaeRadianceFieldDecoderTrainer
-    from .vae.structured_latent_vae_mesh_dec import SLatVaeMeshDecoderTrainer
-    
     from .flow_matching.flow_matching import (
-        FlowMatchingTrainer,
         FlowMatchingCFGTrainer,
-        TextConditionedFlowMatchingCFGTrainer,
+        FlowMatchingTrainer,
         ImageConditionedFlowMatchingCFGTrainer,
+        TextConditionedFlowMatchingCFGTrainer,
     )
-    
     from .flow_matching.sparse_flow_matching import (
-        SparseFlowMatchingTrainer,
-        SparseFlowMatchingCFGTrainer,
-        TextConditionedSparseFlowMatchingCFGTrainer,
         ImageConditionedSparseFlowMatchingCFGTrainer,
+        SparseFlowMatchingCFGTrainer,
+        SparseFlowMatchingTrainer,
+        TextConditionedSparseFlowMatchingCFGTrainer,
     )
+    from .vae.sparse_structure_vae import SparseStructureVaeTrainer
+    from .vae.structured_latent_vae_gaussian import SLatVaeGaussianTrainer
+    from .vae.structured_latent_vae_mesh_dec import SLatVaeMeshDecoderTrainer
+    from .vae.structured_latent_vae_rf_dec import SLatVaeRadianceFieldDecoderTrainer

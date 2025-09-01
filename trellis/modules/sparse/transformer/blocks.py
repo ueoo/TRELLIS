@@ -1,11 +1,13 @@
 from typing import *
+
 import torch
 import torch.nn as nn
+
+from ...norm import LayerNorm32
+from ..attention import SerializeMode, SparseMultiHeadAttention
 from ..basic import SparseTensor
 from ..linear import SparseLinear
 from ..nonlinearity import SparseGELU
-from ..attention import SparseMultiHeadAttention, SerializeMode
-from ...norm import LayerNorm32
 
 
 class SparseFeedForwardNet(nn.Module):
@@ -25,6 +27,7 @@ class SparseTransformerBlock(nn.Module):
     """
     Sparse Transformer block (MSA + FFN).
     """
+
     def __init__(
         self,
         channels: int,
@@ -82,6 +85,7 @@ class SparseTransformerCrossBlock(nn.Module):
     """
     Sparse Transformer cross-attention block (MSA + MCA + FFN).
     """
+
     def __init__(
         self,
         channels: int,

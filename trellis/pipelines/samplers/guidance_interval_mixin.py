@@ -1,6 +1,3 @@
-from typing import *
-
-
 class GuidanceIntervalSamplerMixin:
     """
     A mixin class for samplers that apply classifier-free guidance with interval.

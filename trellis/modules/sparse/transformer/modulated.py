@@ -1,9 +1,11 @@
 from typing import *
+
 import torch
 import torch.nn as nn
-from ..basic import SparseTensor
-from ..attention import SparseMultiHeadAttention, SerializeMode
+
 from ...norm import LayerNorm32
+from ..attention import SerializeMode, SparseMultiHeadAttention
+from ..basic import SparseTensor
 from .blocks import SparseFeedForwardNet
 
 
@@ -11,6 +13,7 @@ class ModulatedSparseTransformerBlock(nn.Module):
     """
     Sparse Transformer block (MSA + FFN) with adaptive layer norm conditioning.
     """
+
     def __init__(
         self,
         channels: int,
@@ -49,10 +52,7 @@ class ModulatedSparseTransformerBlock(nn.Module):
             mlp_ratio=mlp_ratio,
         )
         if not share_mod:
-            self.adaLN_modulation = nn.Sequential(
-                nn.SiLU(),
-                nn.Linear(channels, 6 * channels, bias=True)
-            )
+            self.adaLN_modulation = nn.Sequential(nn.SiLU(), nn.Linear(channels, 6 * channels, bias=True))
 
     def _forward(self, x: SparseTensor, mod: torch.Tensor) -> SparseTensor:
         if self.share_mod:
@@ -82,6 +82,7 @@ class ModulatedSparseTransformerCrossBlock(nn.Module):
     """
     Sparse Transformer cross-attention block (MSA + MCA + FFN) with adaptive layer norm conditioning.
     """
+
     def __init__(
         self,
         channels: int,
@@ -99,7 +100,6 @@ class ModulatedSparseTransformerCrossBlock(nn.Module):
         qk_rms_norm_cross: bool = False,
         qkv_bias: bool = True,
         share_mod: bool = False,
-
     ):
         super().__init__()
         self.use_checkpoint = use_checkpoint
@@ -134,10 +134,7 @@ class ModulatedSparseTransformerCrossBlock(nn.Module):
             mlp_ratio=mlp_ratio,
         )
         if not share_mod:
-            self.adaLN_modulation = nn.Sequential(
-                nn.SiLU(),
-                nn.Linear(channels, 6 * channels, bias=True)
-            )
+            self.adaLN_modulation = nn.Sequential(nn.SiLU(), nn.Linear(channels, 6 * channels, bias=True))
 
     def _forward(self, x: SparseTensor, mod: torch.Tensor, context: torch.Tensor) -> SparseTensor:
         if self.share_mod:

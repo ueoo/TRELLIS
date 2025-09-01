@@ -396,3 +396,14 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Dataset
+datasets/
+!dataset_toolkits/datasets/
+io_scene_usdz/
+
+# Output
+outputs
+
+demo
+
