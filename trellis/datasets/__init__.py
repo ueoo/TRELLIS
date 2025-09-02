@@ -9,9 +9,11 @@ __attributes = {
     "SparseStructureLatent": "sparse_structure_latent",
     "TextConditionedSparseStructureLatent": "sparse_structure_latent",
     "ImageConditionedSparseStructureLatent": "sparse_structure_latent",
+    "SparseStructureLatentConditionedSparseStructureLatent": "sparse_structure_latent",
     "SLat": "structured_latent",
     "TextConditionedSLat": "structured_latent",
     "ImageConditionedSLat": "structured_latent",
+    "SLatConditionedSLat": "structured_latent",
 }
 
 __submodules = []
@@ -41,6 +43,7 @@ if __name__ == "__main__":
         ImageConditionedSparseStructureLatent,
         SparseStructureLatent,
         TextConditionedSparseStructureLatent,
+        SparseStructureLatentConditionedSparseStructureLatent,
     )
-    from .structured_latent import ImageConditionedSLat, SLat, TextConditionedSLat
+    from .structured_latent import ImageConditionedSLat, SLat, SLatConditionedSLat, TextConditionedSLat
     from .structured_latent2render import SLat2Render, Slat2RenderGeo

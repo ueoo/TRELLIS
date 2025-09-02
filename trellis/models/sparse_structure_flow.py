@@ -209,3 +209,54 @@ class SparseStructureFlowModel(nn.Module):
         h = unpatchify(h, self.patch_size).contiguous()
 
         return h
+
+
+class SparseStructureLatentCondSparseStructureFlowModel(SparseStructureFlowModel):
+    """
+    Sparse structure latent conditioned sparse structure flow model.
+    Use ss latent as condition.
+    """
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.input_layer_cond = nn.Linear(self.in_channels * self.patch_size**3, self.cond_channels)
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
+        assert [*x.shape] == [
+            x.shape[0],
+            self.in_channels,
+            *[self.resolution] * 3,
+        ], f"Input shape mismatch, got {x.shape}, expected {[x.shape[0], self.in_channels, *[self.resolution] * 3]}"
+
+        h = patchify(x, self.patch_size)
+        h = h.view(*h.shape[:2], -1).permute(0, 2, 1).contiguous()
+        h = self.input_layer(h)
+        h = h + self.pos_emb[None]
+
+        t_emb = self.t_embedder(t)
+        if self.share_mod:
+            t_emb = self.adaLN_modulation(t_emb)
+
+        cond = patchify(cond, self.patch_size)
+        cond = cond.view(*cond.shape[:2], -1).permute(0, 2, 1).contiguous()
+        cond = self.input_layer_cond(cond)
+        cond = cond + self.pos_emb[None]
+
+        t_emb = t_emb.type(self.dtype)
+        h = h.type(self.dtype)
+        cond = cond.type(self.dtype)
+
+        for block in self.blocks:
+            h = block(h, t_emb, cond)
+        h = h.type(x.dtype)
+        h = F.layer_norm(h, h.shape[-1:])
+        h = self.out_layer(h)
+
+        h = h.permute(0, 2, 1).view(h.shape[0], h.shape[2], *[self.resolution // self.patch_size] * 3)
+        h = unpatchify(h, self.patch_size).contiguous()
+
+        return h

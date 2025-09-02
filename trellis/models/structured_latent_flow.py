@@ -284,9 +284,57 @@ class SLatFlowModel(nn.Module):
         return h
 
 
+class SLatCondSLatFlowModel(SLatFlowModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.input_layer_cond = sp.SparseLinear(self.in_channels, self.cond_channels)
+
+    def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: sp.SparseTensor) -> sp.SparseTensor:
+        h = self.input_layer(x).type(self.dtype)
+        t_emb = self.t_embedder(t)
+        if self.share_mod:
+            t_emb = self.adaLN_modulation(t_emb)
+        t_emb = t_emb.type(self.dtype)
+
+        skips = []
+        # pack with input blocks
+        for block in self.input_blocks:
+            h = block(h, t_emb)
+            skips.append(h.feats)
+
+        cond = self.input_layer_cond(cond).type(self.dtype)
+
+        if self.pe_mode == "ape":
+            h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
+            cond = cond + self.pos_embedder(cond.coords[:, 1:]).type(self.dtype)
+
+        for block in self.blocks:
+            h = block(h, t_emb, cond)
+
+        # unpack with output blocks
+        for block, skip in zip(self.out_blocks, reversed(skips)):
+            if self.use_skip_connection:
+                h = block(h.replace(torch.cat([h.feats, skip], dim=1)), t_emb)
+            else:
+                h = block(h, t_emb)
+
+        h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
+        h = self.out_layer(h.type(x.dtype))
+        return h
+
+
 class ElasticSLatFlowModel(SparseTransformerElasticMixin, SLatFlowModel):
     """
     SLat Flow Model with elastic memory management.
+    Used for training with low VRAM.
+    """
+
+    pass
+
+
+class ElasticSLatCondSLatFlowModel(SparseTransformerElasticMixin, SLatCondSLatFlowModel):
+    """
+    SLat Cond SLat Flow Model with elastic memory management.
     Used for training with low VRAM.
     """
 

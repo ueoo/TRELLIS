@@ -11,7 +11,12 @@ from .. import models
 from ..modules.sparse.basic import SparseTensor
 from ..utils.data_utils import load_balanced_group_indices
 from ..utils.render_utils import get_renderer
-from .components import ImageConditionedMixin, StandardDatasetBase, TextConditionedMixin
+from .components import (
+    ImageConditionedMixin,
+    SLatConditionedMixin,
+    StandardDatasetBase,
+    TextConditionedMixin,
+)
 
 
 class SLatVisMixin:
@@ -209,6 +214,31 @@ class SLat(SLatVisMixin, StandardDatasetBase):
             for k in keys:
                 if isinstance(sub_batch[0][k], torch.Tensor):
                     pack[k] = torch.stack([b[k] for b in sub_batch])
+                elif isinstance(sub_batch[0][k], SparseTensor):
+                    # Batch SparseTensor cond similarly to x_0
+                    c_coords = []
+                    c_feats = []
+                    c_layout = []
+                    c_start = 0
+                    for i, b in enumerate(sub_batch):
+                        st = b[k]
+                        c_coords.append(
+                            torch.cat(
+                                [
+                                    torch.full((st.coords.shape[0], 1), i, dtype=torch.int32),
+                                    st.coords,
+                                ],
+                                dim=-1,
+                            )
+                        )
+                        c_feats.append(st.feats)
+                        c_layout.append(slice(c_start, c_start + st.coords.shape[0]))
+                        c_start += st.coords.shape[0]
+                    c_coords = torch.cat(c_coords) if len(c_coords) > 0 else torch.empty((0, 0), dtype=torch.int32)
+                    c_feats = torch.cat(c_feats) if len(c_feats) > 0 else torch.empty((0,), dtype=torch.float32)
+                    pack[k] = SparseTensor(coords=c_coords, feats=c_feats)
+                    pack[k]._shape = torch.Size([len(group), *sub_batch[0][k].feats.shape[1:]])
+                    pack[k].register_spatial_cache("layout", c_layout)
                 elif isinstance(sub_batch[0][k], list):
                     pack[k] = sum([b[k] for b in sub_batch], [])
                 else:
@@ -232,6 +262,14 @@ class TextConditionedSLat(TextConditionedMixin, SLat):
 class ImageConditionedSLat(ImageConditionedMixin, SLat):
     """
     Image conditioned structured latent dataset
+    """
+
+    pass
+
+
+class SLatConditionedSLat(SLatConditionedMixin, SLat):
+    """
+    SLat conditioned SLat dataset
     """
 
     pass

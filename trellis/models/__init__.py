@@ -5,6 +5,7 @@ __attributes = {
     "SparseStructureEncoder": "sparse_structure_vae",
     "SparseStructureDecoder": "sparse_structure_vae",
     "SparseStructureFlowModel": "sparse_structure_flow",
+    "SparseStructureLatentCondSparseStructureFlowModel": "sparse_structure_flow",
     "SLatEncoder": "structured_latent_vae",
     "SLatGaussianDecoder": "structured_latent_vae",
     "SLatRadianceFieldDecoder": "structured_latent_vae",
@@ -14,7 +15,9 @@ __attributes = {
     "ElasticSLatRadianceFieldDecoder": "structured_latent_vae",
     "ElasticSLatMeshDecoder": "structured_latent_vae",
     "SLatFlowModel": "structured_latent_flow",
+    "SLatCondSLatFlowModel": "structured_latent_flow",
     "ElasticSLatFlowModel": "structured_latent_flow",
+    "ElasticSLatCondSLatFlowModel": "structured_latent_flow",
 }
 
 __submodules = []
@@ -74,9 +77,17 @@ def from_pretrained(path: str, **kwargs):
 
 # For Pylance
 if __name__ == "__main__":
-    from .sparse_structure_flow import SparseStructureFlowModel
+    from .sparse_structure_flow import (
+        SparseStructureFlowModel,
+        SparseStructureLatentCondSparseStructureFlowModel,
+    )
     from .sparse_structure_vae import SparseStructureDecoder, SparseStructureEncoder
-    from .structured_latent_flow import ElasticSLatFlowModel, SLatFlowModel
+    from .structured_latent_flow import (
+        ElasticSLatCondSLatFlowModel,
+        ElasticSLatFlowModel,
+        SLatCondSLatFlowModel,
+        SLatFlowModel,
+    )
     from .structured_latent_vae import (
         ElasticSLatEncoder,
         ElasticSLatGaussianDecoder,

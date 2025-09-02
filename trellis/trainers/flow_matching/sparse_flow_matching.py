@@ -17,6 +17,7 @@ from ...utils.general_utils import dict_reduce
 from .flow_matching import FlowMatchingTrainer
 from .mixins.classifier_free_guidance import ClassifierFreeGuidanceMixin
 from .mixins.image_conditioned import ImageConditionedMixin
+from .mixins.structure_latent_conditioned import SLatConditionedMixin
 from .mixins.text_conditioned import TextConditionedMixin
 
 
@@ -289,6 +290,14 @@ class ImageConditionedSparseFlowMatchingCFGTrainer(ImageConditionedMixin, Sparse
         sigma_min (float): Minimum noise level.
         p_uncond (float): Probability of dropping conditions.
         image_cond_model (str): Image conditioning model.
+    """
+
+    pass
+
+
+class SLatConditionedSparseFlowMatchingCFGTrainer(SLatConditionedMixin, SparseFlowMatchingCFGTrainer):
+    """
+    Trainer for sparse SLat-conditioned diffusion model with flow matching objective and classifier-free guidance.
     """
 
     pass

@@ -323,6 +323,29 @@ class BasicTrainer(Trainer):
                                 f"Warning: {k} shape mismatch, {model_ckpt[k].shape} vs {model_state_dict[k].shape}, skipped."
                             )
                         model_ckpt[k] = model_state_dict[k]
+                # hack for the newly added input_layer_cond in sparse_structure_flow
+                # Mirror from input_layer -> input_layer_cond ONLY when shapes match; otherwise skip
+                for k, v in list(model_ckpt.items()):
+                    if not k.startswith("input_layer."):
+                        continue
+                    k_cond = k.replace("input_layer.", "input_layer_cond.")
+                    if k_cond not in model_state_dict:
+                        continue
+                    target_shape = model_state_dict[k_cond].shape
+                    if v.shape == target_shape:
+                        model_ckpt[k_cond] = v
+                    else:
+                        if self.is_master:
+                            print(
+                                f"Warning: {k_cond} shape mismatch during mirror, {v.shape} vs {target_shape}, skipped."
+                            )
+                        model_ckpt[k_cond] = model_state_dict[k_cond]
+
+                # Ensure all tensors are on the current device to avoid CPU/CUDA mixing
+                for _k, _v in list(model_ckpt.items()):
+                    if isinstance(_v, torch.Tensor):
+                        model_ckpt[_k] = _v.to(self.device)
+
                 model_ckpts[name] = model_ckpt
                 model.load_state_dict(model_ckpt)
                 if self.fp16_mode == "inflat_all":

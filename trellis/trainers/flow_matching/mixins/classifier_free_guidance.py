@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+from ....modules import sparse as sp
 from ....pipelines import samplers
 from ....utils.general_utils import dict_foreach
 
@@ -21,6 +22,8 @@ class ClassifierFreeGuidanceMixin:
             def get_batch_size(cond):
                 if isinstance(cond, torch.Tensor):
                     return cond.shape[0]
+                elif isinstance(cond, sp.SparseTensor):
+                    return cond.shape[0]
                 elif isinstance(cond, list):
                     return len(cond)
                 else:
@@ -31,8 +34,13 @@ class ClassifierFreeGuidanceMixin:
 
             def select(cond, neg_cond, mask):
                 if isinstance(cond, torch.Tensor):
-                    mask = torch.tensor(mask, device=cond.device).reshape(-1, *[1] * (cond.ndim - 1))
-                    return torch.where(mask, neg_cond, cond)
+                    mask_tensor = torch.tensor(mask, device=cond.device).reshape(-1, *[1] * (cond.ndim - 1))
+                    return torch.where(mask_tensor, neg_cond, cond)
+                elif isinstance(cond, sp.SparseTensor):
+                    pos_unbind = sp.sparse_unbind(cond, dim=0)
+                    neg_unbind = sp.sparse_unbind(neg_cond, dim=0)
+                    chosen = [nu if m else pu for pu, nu, m in zip(pos_unbind, neg_unbind, mask)]
+                    return sp.sparse_cat(chosen, dim=0)
                 elif isinstance(cond, list):
                     return [nc if m else c for c, nc, m in zip(cond, neg_cond, mask)]
                 else:
