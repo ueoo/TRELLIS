@@ -127,7 +127,13 @@ def render_multiview(sample, resolution=512, nviews=30):
 
 
 def render_snapshot(
-    samples, resolution=512, bg_color=(0, 0, 0), offset=(-16 / 180 * np.pi, 20 / 180 * np.pi), r=10, fov=8, **kwargs
+    samples,
+    resolution=512,
+    bg_color=(0, 0, 0),
+    offset=(-16 / 180 * np.pi, 20 / 180 * np.pi),
+    r=10,
+    fov=8,
+    **kwargs,
 ):
     yaw = [0, np.pi / 2, np.pi, 3 * np.pi / 2]
     yaw_offset = offset[0]
