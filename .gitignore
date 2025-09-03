@@ -405,5 +405,4 @@ io_scene_usdz/
 # Output
 outputs
 
-demo
-demo_4d
+results*

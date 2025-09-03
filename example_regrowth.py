@@ -22,9 +22,11 @@ pipeline.cuda()
 start_frame = 35
 end_frame = 160
 
+output_folder = "results"
+
 for frame in trange(start_frame, end_frame):
     # Load an image
-    image = Image.open(f"demo/Regrowth_{frame:03d}.png")
+    image = Image.open(f"{output_folder}/Regrowth_{frame:03d}.png")
 
     # Run the pipeline
     outputs = pipeline.run(
@@ -47,11 +49,11 @@ for frame in trange(start_frame, end_frame):
 
     # Render the outputs
     video = render_utils.render_video(outputs["gaussian"][0])["color"]
-    imageio.mimsave(f"demo/Regrowth_sample_gs_{frame:03d}.mp4", video, fps=30)
+    imageio.mimsave(f"{output_folder}/Regrowth_sample_gs_{frame:03d}.mp4", video, fps=30)
     video = render_utils.render_video(outputs["radiance_field"][0])["color"]
-    imageio.mimsave(f"demo/Regrowth_sample_rf_{frame:03d}.mp4", video, fps=30)
+    imageio.mimsave(f"{output_folder}/Regrowth_sample_rf_{frame:03d}.mp4", video, fps=30)
     video = render_utils.render_video(outputs["mesh"][0])["normal"]
-    imageio.mimsave(f"demo/Regrowth_sample_mesh_{frame:03d}.mp4", video, fps=30)
+    imageio.mimsave(f"{output_folder}/Regrowth_sample_mesh_{frame:03d}.mp4", video, fps=30)
 
     # GLB files can be extracted from the outputs
     glb = postprocessing_utils.to_glb(
@@ -61,7 +63,7 @@ for frame in trange(start_frame, end_frame):
         simplify=0.95,  # Ratio of triangles to remove in the simplification process
         texture_size=1024,  # Size of the texture used for the GLB
     )
-    glb.export(f"demo/Regrowth_sample_{frame:03d}.glb")
+    glb.export(f"{output_folder}/Regrowth_sample_{frame:03d}.glb")
 
     # Save Gaussians as PLY files
-    outputs["gaussian"][0].save_ply(f"demo/Regrowth_sample_{frame:03d}.ply")
+    outputs["gaussian"][0].save_ply(f"{output_folder}/Regrowth_sample_{frame:03d}.ply")
