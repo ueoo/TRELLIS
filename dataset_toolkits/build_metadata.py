@@ -100,6 +100,8 @@ if __name__ == "__main__":
         metadata["num_voxels"] = [0] * len(metadata)
     if "cond_rendered" not in metadata.columns:
         metadata["cond_rendered"] = [False] * len(metadata)
+    if "cond_rendered_test" not in metadata.columns:
+        metadata["cond_rendered_test"] = [False] * len(metadata)
     for model in image_models:
         if f"feature_{model}" not in metadata.columns:
             metadata[f"feature_{model}"] = [False] * len(metadata)
@@ -146,6 +148,23 @@ if __name__ == "__main__":
 
     # merge cond_rendered
     df_files = [f for f in os.listdir(opt.output_dir) if f.startswith("cond_rendered_") and f.endswith(".csv")]
+    df_parts = []
+    for f in df_files:
+        try:
+            df_parts.append(pd.read_csv(os.path.join(opt.output_dir, f)))
+        except:
+            pass
+    if len(df_parts) > 0:
+        df = pd.concat(df_parts)
+        df.set_index("sha256", inplace=True)
+        metadata.update(df, overwrite=True)
+        for f in df_files:
+            shutil.move(
+                os.path.join(opt.output_dir, f), os.path.join(opt.output_dir, "merged_records", f"{timestamp}_{f}")
+            )
+
+    # merge cond_rendered
+    df_files = [f for f in os.listdir(opt.output_dir) if f.startswith("cond_rendered_test_") and f.endswith(".csv")]
     df_parts = []
     for f in df_files:
         try:
@@ -250,6 +269,14 @@ if __name__ == "__main__":
                         and os.path.exists(os.path.join(opt.output_dir, "renders_cond", sha256, "transforms.json"))
                     ):
                         metadata.loc[sha256, "cond_rendered"] = True
+
+                    if (
+                        need_process("cond_rendered_test")
+                        and metadata.loc[sha256, "cond_rendered_test"] == False
+                        and os.path.exists(os.path.join(opt.output_dir, "renders_cond_test", sha256, "transforms.json"))
+                    ):
+                        metadata.loc[sha256, "cond_rendered_test"] = True
+
                     for model in image_models:
                         if (
                             need_process(f"feature_{model}")
@@ -307,6 +334,7 @@ if __name__ == "__main__":
                 f.write(f'    - {model}: {metadata[f"ss_latent_{model}"].sum()}\n')
         f.write(f'  - Number of assets with captions: {metadata["captions"].count()}\n')
         f.write(f'  - Number of assets with image conditions: {metadata["cond_rendered"].sum()}\n')
+        f.write(f'  - Number of assets with test image conditions: {metadata["cond_rendered_test"].sum()}\n')
 
     with open(os.path.join(opt.output_dir, "statistics.txt"), "r") as f:
         print(f.read())

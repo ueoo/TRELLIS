@@ -5,7 +5,7 @@
 
 # python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
 
-# python dataset_toolkits/render.py Regrowth --output_dir datasets/Regrowth --radius 1.0 --num_views 150
+# python dataset_toolkits/render.py Regrowth --output_dir datasets/Regrowth --radius 1.0 --num_views 5
 
 # python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
 
@@ -26,17 +26,17 @@
 
 # python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
 
-# python dataset_toolkits/render_cond.py Regrowth --output_dir datasets/Regrowth
+# python dataset_toolkits/render_cond_test.py Regrowth --output_dir datasets/Regrowth
 
 # python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
 
-python dataset_toolkits/encode_latent.py \
-    --output_dir datasets/Regrowth \
-    --model_root outputs \
-    --enc_model slat_vae_enc_dec_gs_swin8_B_64l8_fp16_1node_finetune_regrowth_debug \
-    --ckpt ema0.9999_step0500000 \
+# python dataset_toolkits/encode_latent.py \
+#     --output_dir datasets/Regrowth \
+#     --model_root outputs \
+#     --enc_model slat_vae_enc_dec_gs_swin8_B_64l8_fp16_1node_finetune_regrowth_debug \
+#     --ckpt ema0.9999_step0500000 \
 
-python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
+# python dataset_toolkits/build_metadata.py Regrowth --output_dir datasets/Regrowth
 
 exit 0
 }

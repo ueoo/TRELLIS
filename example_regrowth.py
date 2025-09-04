@@ -22,7 +22,7 @@ pipeline.cuda()
 start_frame = 35
 end_frame = 160
 
-output_folder = "results"
+output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results"
 
 for frame in trange(start_frame, end_frame):
     # Load an image

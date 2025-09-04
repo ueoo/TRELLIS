@@ -49,7 +49,7 @@ outputs = pipeline.run(
 # - output['radiance_field']: a list of radiance fields
 # - output['mesh']: a list of meshes
 
-output_folder = "results_4d"
+output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_4d"
 sub_folder = f"Regrowth_sample_gs_{num_frames}_cond_time0_frame{first_cond_frame_path.split('/')[-1].split('.')[0]}"
 os.makedirs(os.path.join(output_folder, sub_folder), exist_ok=True)
 
