@@ -25,7 +25,7 @@
         "args": {
             "latent_model": "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16",
             "min_aesthetic_score": 4.5,
-            "max_num_voxels": 32768,
+            "max_num_voxels": 65536,
             "image_size": 518,
             "normalization": {
                 "mean": [

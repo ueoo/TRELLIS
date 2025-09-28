@@ -54,7 +54,7 @@
             "model": "dinov2_vitl14_reg",
             "resolution": 64,
             "min_aesthetic_score": 4.5,
-            "max_num_voxels": 32768
+            "max_num_voxels": 65536
         }
     },
     "trainer": {
@@ -63,6 +63,7 @@
             "max_steps": 1000000,
             "batch_size_per_gpu": 4,
             "batch_split": 2,
+            "num_workers": 8,
             "optimizer": {
                 "name": "AdamW",
                 "args": {

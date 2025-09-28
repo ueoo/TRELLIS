@@ -498,7 +498,7 @@ def main(arg):
     # normalize scene
     # scale, offset = normalize_scene()
     # print("[INFO] Scene normalized.")
-    scale, offset = scale_scene(arg.scene_scale)
+    scale, offset = scale_scene(1.0)
     print("[INFO] Scene scaled.")
     print(f"{arg.object} | Scale: {scale}, Offset: {offset}")
 
@@ -539,7 +539,7 @@ def main(arg):
                 output.file_slots[0].path = os.path.join(arg.output_folder, f"{i:03d}_{name}")
 
             # Render the scene
-            bpy.ops.render.render(write_still=True)
+            # bpy.ops.render.render(write_still=True)
             bpy.context.view_layer.update()
             for name, output in outputs.items():
                 ext = EXT[output.format.file_format]
@@ -559,9 +559,9 @@ def main(arg):
                 }
             to_export["frames"].append(metadata)
 
-        # Save the camera parameters
-        with open(json_file, "w") as f:
-            json.dump(to_export, f, indent=4)
+        # # Save the camera parameters
+        # with open(json_file, "w") as f:
+        #     json.dump(to_export, f, indent=4)
 
     if arg.save_mesh:
         mesh_file_path = os.path.join(arg.output_folder, "mesh.ply")
