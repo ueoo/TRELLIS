@@ -21,9 +21,9 @@
     "dataset": {
         "name": "SparseStructureLatentConditionedSparseStructureLatent",
         "args": {
-            "latent_model": "ss_vae_conv3d_16l8_fp16_1node_finetune_regrowth_debug_ema0.9999_step0200000",
-            "ss_dec_path": "outputs/ss_vae_conv3d_16l8_fp16_1node_finetune_regrowth_debug",
-            "ss_dec_ckpt": "ema0.9999_step0200000"
+            "latent_model": "ss_vae_conv3d_16l8_fp16_1node_finetune_growth4d_ema0.9999_step0500000",
+            "ss_dec_path": "/viscam/projects/4d-state-machine/TRELLIS_outputs/ss_vae_conv3d_16l8_fp16_1node_finetune_growth4d",
+            "ss_dec_ckpt": "ema0.9999_step0500000"
         }
     },
     "trainer": {
@@ -32,6 +32,7 @@
             "max_steps": 1000000,
             "batch_size_per_gpu": 4,
             "batch_split": 4,
+            "num_workers": 8,
             "optimizer": {
                 "name": "AdamW",
                 "args": {

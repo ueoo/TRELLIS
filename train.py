@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import random
+import resource
 import sys
 
 import numpy as np
@@ -14,6 +15,10 @@ from easydict import EasyDict as edict
 from trellis import datasets, models, trainers
 from trellis.utils.dist_utils import setup_dist
 from trellis.utils.general_utils import json_default
+
+
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
 
 def find_ckpt(cfg):
