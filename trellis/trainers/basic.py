@@ -43,6 +43,10 @@ class BasicTrainer(Trainer):
             - 'amp': Automatic mixed precision.
         fp16_scale_growth (float): Scale growth for FP16 gradient backpropagation.
         finetune_ckpt (dict): Finetune checkpoint.
+        trainable_param_names (list[str] | None): If provided and non-empty, only parameters
+            whose names match entries in this list are trainable. Accepts either
+            'param_name' or 'model_name.param_name'. If None or empty, all parameters
+            remain trainable.
         log_param_stats (bool): Log parameter stats.
         i_print (int): Print interval.
         i_log (int): Log interval.
@@ -96,6 +100,30 @@ class BasicTrainer(Trainer):
             }
         else:
             self.training_models = self.models
+
+        # Configure trainable parameters based on provided names
+        trainable_param_names = kwargs.get("trainable_param_names", None)
+        print(f"Trainable parameter names: {trainable_param_names}")
+        self.trainable_param_names = None
+        if trainable_param_names is not None and len(trainable_param_names) > 0:
+            # Normalize to a set of strings for fast lookup
+            self.trainable_param_names = set([str(x) for x in trainable_param_names])
+            num_trainable = 0
+            num_total = 0
+            for model_name, model in self.models.items():
+                for param_name, param in model.named_parameters():
+                    full_name = f"{model_name}.{param_name}"
+                    is_trainable = False
+                    for trainable_name in self.trainable_param_names:
+                        if trainable_name in param_name or trainable_name in full_name:
+                            is_trainable = True
+                            break
+                    param.requires_grad = bool(is_trainable)
+                    num_total += 1
+                    if param.requires_grad:
+                        num_trainable += 1
+            if self.is_master:
+                print(f"Trainable parameter filtering enabled: {num_trainable}/{num_total} namedparams will be optimized.")
 
         # Build master params
         self.model_params = sum(

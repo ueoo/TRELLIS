@@ -76,6 +76,11 @@ def main(local_rank, cfg):
     # Build model
     model_dict = {name: getattr(models, model.name)(**model.args).cuda() for name, model in cfg.models.items()}
 
+    # Build trainer
+    trainer = getattr(trainers, cfg.trainer.name)(
+        model_dict, dataset, **cfg.trainer.args, output_dir=cfg.output_dir, load_dir=cfg.load_dir, step=cfg.load_ckpt
+    )
+
     # Model summary
     if rank == 0:
         for name, backbone in model_dict.items():
@@ -83,11 +88,6 @@ def main(local_rank, cfg):
             print(f"\n\nBackbone: {name}\n" + model_summary)
             with open(os.path.join(cfg.output_dir, f"{name}_model_summary.txt"), "w") as fp:
                 print(model_summary, file=fp)
-
-    # Build trainer
-    trainer = getattr(trainers, cfg.trainer.name)(
-        model_dict, dataset, **cfg.trainer.args, output_dir=cfg.output_dir, load_dir=cfg.load_dir, step=cfg.load_ckpt
-    )
 
     # Train
     if not cfg.tryrun:

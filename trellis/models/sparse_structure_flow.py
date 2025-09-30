@@ -132,6 +132,7 @@ class SparseStructureFlowModel(nn.Module):
         self.out_layer = nn.Linear(model_channels, out_channels * patch_size**3)
 
         self.initialize_weights()
+        
         if use_fp16:
             self.convert_to_fp16()
 
