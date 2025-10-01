@@ -18,6 +18,7 @@ __attributes = {
     "SLatCondSLatFlowModel": "structured_latent_flow",
     "ElasticSLatFlowModel": "structured_latent_flow",
     "ElasticSLatCondSLatFlowModel": "structured_latent_flow",
+    "ElasticPrevImageCondSLatFlowModel": "structured_latent_flow",
 }
 
 __submodules = []
@@ -83,8 +84,10 @@ if __name__ == "__main__":
     )
     from .sparse_structure_vae import SparseStructureDecoder, SparseStructureEncoder
     from .structured_latent_flow import (
+        ElasticPrevImageCondSLatFlowModel,
         ElasticSLatCondSLatFlowModel,
         ElasticSLatFlowModel,
+        PrevImageCondSLatFlowModel,
         SLatCondSLatFlowModel,
         SLatFlowModel,
     )

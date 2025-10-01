@@ -10,6 +10,7 @@ from ..modules.transformer import (
     AbsolutePositionEmbedder,
     ModulatedTransformerCrossBlock,
 )
+from ..modules.transformer.blocks import FeedForwardNet
 from ..modules.utils import convert_module_to_f16, convert_module_to_f32
 
 
@@ -77,6 +78,8 @@ class SparseStructureFlowModel(nn.Module):
         share_mod: bool = False,
         qk_rms_norm: bool = False,
         qk_rms_norm_cross: bool = False,
+        input_cond: bool = False,
+        mlp_cond: bool = False,
     ):
         super().__init__()
         self.resolution = resolution
@@ -95,6 +98,9 @@ class SparseStructureFlowModel(nn.Module):
         self.qk_rms_norm = qk_rms_norm
         self.qk_rms_norm_cross = qk_rms_norm_cross
         self.dtype = torch.float16 if use_fp16 else torch.float32
+
+        self.input_cond = input_cond
+        self.mlp_cond = mlp_cond
 
         self.t_embedder = TimestepEmbedder(model_channels)
         if share_mod:
@@ -131,8 +137,13 @@ class SparseStructureFlowModel(nn.Module):
 
         self.out_layer = nn.Linear(model_channels, out_channels * patch_size**3)
 
+        if self.input_cond:
+            self.input_layer_cond = nn.Linear(cond_channels, model_channels)
+            if self.mlp_cond:
+                self.mlp_layer_cond = FeedForwardNet(model_channels, mlp_ratio=self.mlp_ratio)
+
         self.initialize_weights()
-        
+
         if use_fp16:
             self.convert_to_fp16()
 
@@ -199,6 +210,12 @@ class SparseStructureFlowModel(nn.Module):
             t_emb = self.adaLN_modulation(t_emb)
         t_emb = t_emb.type(self.dtype)
         h = h.type(self.dtype)
+
+        if self.input_cond:
+            cond = self.input_layer_cond(cond)
+            if self.mlp_cond:
+                cond = self.mlp_layer_cond(cond)
+
         cond = cond.type(self.dtype)
         for block in self.blocks:
             h = block(h, t_emb, cond)
@@ -225,6 +242,8 @@ class SparseStructureLatentCondSparseStructureFlowModel(SparseStructureFlowModel
     ):
         super().__init__(*args, **kwargs)
         self.input_layer_cond = nn.Linear(self.in_channels * self.patch_size**3, self.cond_channels)
+        if self.mlp_cond:
+            self.mlp_layer_cond = FeedForwardNet(self.cond_channels, mlp_ratio=self.mlp_ratio)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         assert [*x.shape] == [
@@ -246,6 +265,9 @@ class SparseStructureLatentCondSparseStructureFlowModel(SparseStructureFlowModel
         cond = cond.view(*cond.shape[:2], -1).permute(0, 2, 1).contiguous()
         cond = self.input_layer_cond(cond)
         cond = cond + self.pos_emb[None]
+
+        if self.mlp_cond:
+            cond = self.mlp_layer_cond(cond)
 
         t_emb = t_emb.type(self.dtype)
         h = h.type(self.dtype)

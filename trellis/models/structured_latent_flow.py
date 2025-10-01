@@ -8,7 +8,9 @@ import torch.nn.functional as F
 from ..modules import sparse as sp
 from ..modules.norm import LayerNorm32
 from ..modules.sparse.transformer import ModulatedSparseTransformerCrossBlock
+from ..modules.sparse.transformer.blocks import SparseFeedForwardNet
 from ..modules.transformer import AbsolutePositionEmbedder
+from ..modules.transformer.blocks import FeedForwardNet
 from ..modules.utils import convert_module_to_f16, convert_module_to_f32, zero_module
 from .sparse_elastic_mixin import SparseTransformerElasticMixin
 from .sparse_structure_flow import TimestepEmbedder
@@ -92,6 +94,8 @@ class SLatFlowModel(nn.Module):
         share_mod: bool = False,
         qk_rms_norm: bool = False,
         qk_rms_norm_cross: bool = False,
+        input_cond: bool = False,
+        mlp_cond: bool = False,
     ):
         super().__init__()
         self.resolution = resolution
@@ -113,6 +117,8 @@ class SLatFlowModel(nn.Module):
         self.qk_rms_norm = qk_rms_norm
         self.qk_rms_norm_cross = qk_rms_norm_cross
         self.dtype = torch.float16 if use_fp16 else torch.float32
+        self.input_cond = input_cond
+        self.mlp_cond = mlp_cond
 
         if self.io_block_channels is not None:
             assert int(np.log2(patch_size)) == np.log2(patch_size), "Patch size must be a power of 2"
@@ -288,6 +294,8 @@ class SLatCondSLatFlowModel(SLatFlowModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.input_layer_cond = sp.SparseLinear(self.in_channels, self.cond_channels)
+        if self.mlp_cond:
+            self.mlp_layer_cond = SparseFeedForwardNet(self.cond_channels, mlp_ratio=self.mlp_ratio)
 
     def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: sp.SparseTensor) -> sp.SparseTensor:
         h = self.input_layer(x).type(self.dtype)
@@ -302,12 +310,57 @@ class SLatCondSLatFlowModel(SLatFlowModel):
             h = block(h, t_emb)
             skips.append(h.feats)
 
-        cond = self.input_layer_cond(cond).type(self.dtype)
+        cond = self.input_layer_cond(cond)
+        if self.mlp_cond:
+            cond = self.mlp_layer_cond(cond)
+        cond = cond.type(self.dtype)
 
         if self.pe_mode == "ape":
             h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
             cond = cond + self.pos_embedder(cond.coords[:, 1:]).type(self.dtype)
 
+        for block in self.blocks:
+            h = block(h, t_emb, cond)
+
+        # unpack with output blocks
+        for block, skip in zip(self.out_blocks, reversed(skips)):
+            if self.use_skip_connection:
+                h = block(h.replace(torch.cat([h.feats, skip], dim=1)), t_emb)
+            else:
+                h = block(h, t_emb)
+
+        h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
+        h = self.out_layer(h.type(x.dtype))
+        return h
+
+
+class PrevImageCondSLatFlowModel(SLatFlowModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.input_layer_cond = nn.Linear(self.cond_channels, self.model_channels)
+        if self.mlp_cond:
+            self.mlp_layer_cond = FeedForwardNet(self.model_channels, mlp_ratio=self.mlp_ratio)
+
+    def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: torch.Tensor) -> sp.SparseTensor:
+        h = self.input_layer(x).type(self.dtype)
+        t_emb = self.t_embedder(t)
+        if self.share_mod:
+            t_emb = self.adaLN_modulation(t_emb)
+        t_emb = t_emb.type(self.dtype)
+
+        cond = self.input_layer_cond(cond)
+        if self.mlp_cond:
+            cond = self.mlp_layer_cond(cond)
+        cond = cond.type(self.dtype)
+
+        skips = []
+        # pack with input blocks
+        for block in self.input_blocks:
+            h = block(h, t_emb)
+            skips.append(h.feats)
+
+        if self.pe_mode == "ape":
+            h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
         for block in self.blocks:
             h = block(h, t_emb, cond)
 
@@ -335,6 +388,15 @@ class ElasticSLatFlowModel(SparseTransformerElasticMixin, SLatFlowModel):
 class ElasticSLatCondSLatFlowModel(SparseTransformerElasticMixin, SLatCondSLatFlowModel):
     """
     SLat Cond SLat Flow Model with elastic memory management.
+    Used for training with low VRAM.
+    """
+
+    pass
+
+
+class ElasticPrevImageCondSLatFlowModel(SparseTransformerElasticMixin, PrevImageCondSLatFlowModel):
+    """
+    Prev Image Cond SLat Flow Model with elastic memory management.
     Used for training with low VRAM.
     """
 

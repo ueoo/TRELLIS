@@ -13,6 +13,8 @@ from ..utils.data_utils import load_balanced_group_indices
 from ..utils.render_utils import get_renderer
 from .components import (
     ImageConditionedMixin,
+    PrevImageCondConditionedMixin,
+    PrevImageConditionedMixin,
     SLatConditionedMixin,
     StandardDatasetBase,
     TextConditionedMixin,
@@ -270,6 +272,22 @@ class ImageConditionedSLat(ImageConditionedMixin, SLat):
 class SLatConditionedSLat(SLatConditionedMixin, SLat):
     """
     SLat conditioned SLat dataset
+    """
+
+    pass
+
+
+class PrevImageConditionedSLat(PrevImageConditionedMixin, SLat):
+    """
+    Prev image conditioned SLat dataset
+    """
+
+    pass
+
+
+class PrevImageCondConditionedSLat(PrevImageCondConditionedMixin, SLat):
+    """
+    Prev image conditioned SLat dataset
     """
 
     pass

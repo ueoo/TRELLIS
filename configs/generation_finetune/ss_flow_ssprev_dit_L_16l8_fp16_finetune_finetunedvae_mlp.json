@@ -1,0 +1,77 @@
+{
+    "models": {
+        "denoiser": {
+            "name": "SparseStructureLatentCondSparseStructureFlowModel",
+            "args": {
+                "resolution": 16,
+                "in_channels": 8,
+                "out_channels": 8,
+                "model_channels": 1024,
+                "cond_channels": 1024,
+                "num_blocks": 24,
+                "num_heads": 16,
+                "mlp_ratio": 4,
+                "patch_size": 1,
+                "pe_mode": "ape",
+                "qk_rms_norm": true,
+                "use_fp16": true,
+                "mlp_cond": true
+            }
+        }
+    },
+    "dataset": {
+        "name": "SparseStructureLatentConditionedSparseStructureLatent",
+        "args": {
+            "latent_model": "ss_vae_conv3d_16l8_fp16_1node_finetune_growth4d_ema0.9999_step0500000",
+            "ss_dec_path": "/viscam/projects/4d-state-machine/TRELLIS_outputs/ss_vae_conv3d_16l8_fp16_1node_finetune_growth4d",
+            "ss_dec_ckpt": "ema0.9999_step0500000"
+        }
+    },
+    "trainer": {
+        "name": "SparseStructureLatentConditionedFlowMatchingCFGTrainer",
+        "args": {
+            "trainable_param_names": [
+                "input_layer_cond",
+                "mlp_layer_cond"
+            ],
+            "max_steps": 1000000,
+            "batch_size_per_gpu": 4,
+            "batch_split": 4,
+            "num_workers": 8,
+            "optimizer": {
+                "name": "AdamW",
+                "args": {
+                    "lr": 0.0001,
+                    "weight_decay": 0.0
+                }
+            },
+            "ema_rate": [
+                0.9999
+            ],
+            "fp16_mode": "inflat_all",
+            "fp16_scale_growth": 0.001,
+            "grad_clip": {
+                "name": "AdaptiveGradClipper",
+                "args": {
+                    "max_norm": 1.0,
+                    "clip_percentile": 95
+                }
+            },
+            "i_log": 500,
+            "i_sample": 10000,
+            "i_save": 10000,
+            "p_uncond": 0.1,
+            "t_schedule": {
+                "name": "logitNormal",
+                "args": {
+                    "mean": 1.0,
+                    "std": 1.0
+                }
+            },
+            "sigma_min": 1e-5,
+            "finetune_ckpt": {
+                "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/ss_flow_img_dit_L_16l8_fp16.safetensors"
+            }
+        }
+    }
+}

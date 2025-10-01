@@ -353,6 +353,7 @@ class BasicTrainer(Trainer):
                         model_ckpt[k] = model_state_dict[k]
                 # hack for the newly added input_layer_cond in sparse_structure_flow
                 # Mirror from input_layer -> input_layer_cond ONLY when shapes match; otherwise skip
+
                 for k, v in list(model_ckpt.items()):
                     if not k.startswith("input_layer."):
                         continue
@@ -368,6 +369,12 @@ class BasicTrainer(Trainer):
                                 f"Warning: {k_cond} shape mismatch during mirror, {v.shape} vs {target_shape}, skipped."
                             )
                         model_ckpt[k_cond] = model_state_dict[k_cond]
+
+                # skip mlp_layer_cond
+                for k, v in list(model_state_dict.items()):
+                    if not k.startswith("mlp_layer_cond."):
+                        continue
+                    model_ckpt[k] = model_state_dict[k]
 
                 # Ensure all tensors are on the current device to avoid CPU/CUDA mixing
                 for _k, _v in list(model_ckpt.items()):
