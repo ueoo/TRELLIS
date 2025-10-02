@@ -15,7 +15,7 @@ from . import samplers
 from .base import Pipeline
 
 
-class TrellisImageTo4DPipeline(Pipeline):
+class TrellisImageTo4DImgCondPipeline(Pipeline):
     """
     Pipeline for inferring Trellis image-to-4D models.
 
@@ -47,15 +47,15 @@ class TrellisImageTo4DPipeline(Pipeline):
         self._init_image_cond_model(image_cond_model)
 
     @staticmethod
-    def from_pretrained(path: str) -> "TrellisImageTo4DPipeline":
+    def from_pretrained(path: str) -> "TrellisImageTo4DImgCondPipeline":
         """
         Load a pretrained model.
 
         Args:
             path (str): The path to the model. Can be either local path or a Hugging Face repository.
         """
-        pipeline = super(TrellisImageTo4DPipeline, TrellisImageTo4DPipeline).from_pretrained(path)
-        new_pipeline = TrellisImageTo4DPipeline()
+        pipeline = super(TrellisImageTo4DImgCondPipeline, TrellisImageTo4DImgCondPipeline).from_pretrained(path)
+        new_pipeline = TrellisImageTo4DImgCondPipeline()
         new_pipeline.__dict__ = pipeline.__dict__
         args = pipeline._pretrained_args
 
@@ -292,31 +292,24 @@ class TrellisImageTo4DPipeline(Pipeline):
         prev_z_s = z_s
         prev_slat = slat
 
-        try:
-            for frame_idx in range(1, num_frames):
-                print(f"Sampling frame {frame_idx} of {num_frames}")
-                ss_cond = {
-                    "cond": prev_z_s,
-                    "neg_cond": torch.zeros_like(prev_z_s),
-                }
-                z_s, coords = self.sample_sparse_structure(
-                    ss_cond, num_samples, sparse_structure_sampler_params, ss_cond=True
-                )
-                slat_cond = {
-                    "cond": prev_slat,
-                    "neg_cond": sp.SparseTensor(coords=prev_slat.coords, feats=torch.zeros_like(prev_slat.feats)),
-                }
-                slat = self.sample_slat(slat_cond, coords, slat_sampler_params, slat_cond=True)
-                results_list.append(self.decode_slat(slat, formats))
-                prev_z_s = z_s
-                prev_slat = slat
-
-            # some sample goes wrong, return the results so far
-            return results_list
-
-        except Exception as e:
-            print(f"Error sampling frames: {e}")
-            return results_list
+        for frame_idx in range(1, num_frames):
+            print(f"Sampling frame {frame_idx} of {num_frames}")
+            ss_cond = {
+                "cond": prev_z_s,
+                "neg_cond": torch.zeros_like(prev_z_s),
+            }
+            z_s, coords = self.sample_sparse_structure(
+                ss_cond, num_samples, sparse_structure_sampler_params, ss_cond=True
+            )
+            slat_cond = {
+                "cond": prev_slat,
+                "neg_cond": sp.SparseTensor(coords=prev_slat.coords, feats=torch.zeros_like(prev_slat.feats)),
+            }
+            slat = self.sample_slat(slat_cond, coords, slat_sampler_params, slat_cond=True)
+            results_list.append(self.decode_slat(slat, formats))
+            prev_z_s = z_s
+            prev_slat = slat
+        return results_list
 
     @contextmanager
     def inject_sampler_multi_image(

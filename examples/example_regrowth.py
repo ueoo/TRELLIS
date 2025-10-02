@@ -9,61 +9,51 @@ os.environ["SPCONV_ALGO"] = "native"  # Can be 'native' or 'auto', default is 'a
 import imageio
 
 from PIL import Image
-from tqdm import trange
+from tqdm import tqdm, trange
 
-from trellis.pipelines import TrellisImageTo3DPipeline
+from trellis.pipelines import TrellisImageTo4DPipeline
 from trellis.utils import postprocessing_utils, render_utils
 
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisImageTo3DPipeline.from_pretrained("/viscam/projects/4d-state-machine/TRELLIS-image-large")
+pipeline = TrellisImageTo4DPipeline.from_pretrained("/viscam/projects/4d-state-machine/TRELLIS-image-large-finetune-regrowth")
 pipeline.cuda()
 
-start_frame = 35
-end_frame = 160
+first_cond_frame_path = (
+    "datasets/Regrowth/renders_cond/268326481a2fab1e603ea9dcfbb500a6106c7d4c3fa84db5c8573b6eb52d7890/007.png"
+)
 
-output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results"
+num_frames = 120
 
-for frame in trange(start_frame, end_frame):
-    # Load an image
-    image = Image.open(f"{output_folder}/Regrowth_{frame:03d}.png")
+# Load an image
+image = Image.open(first_cond_frame_path)
 
-    # Run the pipeline
-    outputs = pipeline.run(
-        image,
-        seed=1,
-        # Optional parameters
-        # sparse_structure_sampler_params={
-        #     "steps": 12,
-        #     "cfg_strength": 7.5,
-        # },
-        # slat_sampler_params={
-        #     "steps": 12,
-        #     "cfg_strength": 3,
-        # },
-    )
-    # outputs is a dictionary containing generated 3D assets in different formats:
-    # - outputs['gaussian']: a list of 3D Gaussians
-    # - outputs['radiance_field']: a list of radiance fields
-    # - outputs['mesh']: a list of meshes
+# Run the pipeline
+outputs = pipeline.run(
+    image,
+    seed=1,
+    formats=["gaussian"],
+    num_frames=num_frames,
+    # Optional parameters
+    # sparse_structure_sampler_params={
+    #     "steps": 12,
+    #     "cfg_strength": 7.5,
+    # },
+    # slat_sampler_params={
+    #     "steps": 12,
+    #     "cfg_strength": 3,
+    # },
+)
+# outputs is a list of dictionary containing generated 3D assets in different formats:
+# - output['gaussian']: a list of 3D Gaussians
+# - output['radiance_field']: a list of radiance fields
+# - output['mesh']: a list of meshes
 
-    # Render the outputs
-    video = render_utils.render_video(outputs["gaussian"][0])["color"]
-    imageio.mimsave(f"{output_folder}/Regrowth_sample_gs_{frame:03d}.mp4", video, fps=30)
-    video = render_utils.render_video(outputs["radiance_field"][0])["color"]
-    imageio.mimsave(f"{output_folder}/Regrowth_sample_rf_{frame:03d}.mp4", video, fps=30)
-    video = render_utils.render_video(outputs["mesh"][0])["normal"]
-    imageio.mimsave(f"{output_folder}/Regrowth_sample_mesh_{frame:03d}.mp4", video, fps=30)
+output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_4d"
+sub_folder = f"Regrowth_sample_gs_{num_frames}_cond_time0_frame{first_cond_frame_path.split('/')[-1].split('.')[0]}"
+os.makedirs(os.path.join(output_folder, sub_folder), exist_ok=True)
 
-    # GLB files can be extracted from the outputs
-    glb = postprocessing_utils.to_glb(
-        outputs["gaussian"][0],
-        outputs["mesh"][0],
-        # Optional parameters
-        simplify=0.95,  # Ratio of triangles to remove in the simplification process
-        texture_size=1024,  # Size of the texture used for the GLB
-    )
-    glb.export(f"{output_folder}/Regrowth_sample_{frame:03d}.glb")
-
-    # Save Gaussians as PLY files
-    outputs["gaussian"][0].save_ply(f"{output_folder}/Regrowth_sample_{frame:03d}.ply")
+print(f"num outputs: {len(outputs)}")
+for i, output in tqdm(enumerate(outputs), total=len(outputs), desc="Rendering videos"):
+    video = render_utils.render_video(output["gaussian"][0])["color"]
+    imageio.mimsave(os.path.join(output_folder, sub_folder, f"{i:03d}.mp4"), video, fps=30)

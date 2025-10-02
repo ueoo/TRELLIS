@@ -30,6 +30,7 @@ class Pipeline:
         import os
 
         is_local = os.path.exists(f"{path}/pipeline.json")
+        assert is_local, f"Pipeline.from_pretrained: {path} is not a local path."
 
         if is_local:
             config_file = f"{path}/pipeline.json"
