@@ -11,7 +11,7 @@ from tqdm import tqdm, trange
 from utils import get_file_hash
 
 
-GROWTH_4D_DATA_ROOT = "/svl/u/yuegao/4DStateMachine/growth_4d_scenes"
+FLORA_4D_DATA_ROOT = "/svl/u/yuegao/4DStateMachine/growth_4d_scenes"
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -19,7 +19,9 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def get_metadata(split="train", **kwargs):
-    metadata_path = os.path.join(GROWTH_4D_DATA_ROOT, f"growth_4d_data_{split}.csv")
+    meta_file_name = f"growth_4d_data_flora_{split}.csv"
+    metadata_path = os.path.join(FLORA_4D_DATA_ROOT, meta_file_name)
+
     print(f"Loading metadata from {metadata_path}")
     metadata = pd.read_csv(metadata_path)
     return metadata
@@ -30,7 +32,7 @@ def download(metadata, output_dir, **kwargs):
 
     file_paths = {}
     for i in trange(len(metadata), desc="Downloading objects"):
-        src_path = os.path.join(GROWTH_4D_DATA_ROOT, metadata.iloc[i]["raw_file_identifier"])
+        src_path = os.path.join(FLORA_4D_DATA_ROOT, metadata.iloc[i]["raw_file_identifier"])
         dst_path = os.path.join(output_dir, "raw", metadata.iloc[i]["sha256"] + ".obj")
         shutil.copy(src_path, dst_path)
         file_paths[metadata.iloc[i]["sha256"]] = os.path.relpath(dst_path, output_dir)
@@ -43,7 +45,6 @@ def download(metadata, output_dir, **kwargs):
 
 
 def foreach_instance(metadata, output_dir, func, max_workers=None, desc="Processing objects") -> pd.DataFrame:
-
     # load metadata
     metadata = metadata.to_dict("records")
 

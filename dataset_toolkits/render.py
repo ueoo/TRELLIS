@@ -16,7 +16,7 @@ from utils import sphere_hammersley_sequence
 
 
 BLENDER_LINK = "https://download.blender.org/release/Blender4.5/blender-4.5.2-linux-x64.tar.xz"
-BLENDER_INSTALLATION_PATH = "/tmp"
+BLENDER_INSTALLATION_PATH = "/svl/u/yuegao/blender"
 BLENDER_PATH = f"{BLENDER_INSTALLATION_PATH}/blender-4.5.2-linux-x64/blender"
 
 

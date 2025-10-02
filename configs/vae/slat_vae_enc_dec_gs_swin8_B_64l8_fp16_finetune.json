@@ -60,7 +60,7 @@
     "trainer": {
         "name": "SLatVaeGaussianTrainer",
         "args": {
-            "max_steps": 1000000,
+            "max_steps": 100000,
             "batch_size_per_gpu": 4,
             "batch_split": 2,
             "num_workers": 8,

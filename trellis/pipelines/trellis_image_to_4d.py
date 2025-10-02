@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from PIL import Image
 from torchvision import transforms
+from tqdm import trange
 
 from ..modules import sparse as sp
 from . import samplers
@@ -190,7 +191,7 @@ class TrellisImageTo4DPipeline(Pipeline):
         reso = flow_model.resolution
         noise = torch.randn(num_samples, flow_model.in_channels, reso, reso, reso).to(self.device)
         sampler_params = {**self.sparse_structure_sampler_params, **sampler_params}
-        z_s = self.sparse_structure_sampler.sample(flow_model, noise, **cond, **sampler_params, verbose=True).samples
+        z_s = self.sparse_structure_sampler.sample(flow_model, noise, **cond, **sampler_params, verbose=False).samples
 
         # Decode occupancy latent
         decoder = self.models["sparse_structure_decoder"]
@@ -248,7 +249,7 @@ class TrellisImageTo4DPipeline(Pipeline):
             coords=coords,
         )
         sampler_params = {**self.slat_sampler_params, **sampler_params}
-        slat = self.slat_sampler.sample(flow_model, noise, **cond, **sampler_params, verbose=True).samples
+        slat = self.slat_sampler.sample(flow_model, noise, **cond, **sampler_params, verbose=False).samples
 
         std = torch.tensor(self.slat_normalization["std"])[None].to(slat.device)
         mean = torch.tensor(self.slat_normalization["mean"])[None].to(slat.device)
@@ -267,7 +268,7 @@ class TrellisImageTo4DPipeline(Pipeline):
         formats: List[str] = ["mesh", "gaussian", "radiance_field"],
         preprocess_image: bool = True,
         num_frames: int = 120,
-    ) -> dict:
+    ) -> list[dict]:
         """
         Run the pipeline.
 
@@ -284,7 +285,7 @@ class TrellisImageTo4DPipeline(Pipeline):
             image = self.preprocess_image(image)
         cond = self.get_cond([image])
         torch.manual_seed(seed)
-        print(f"Sampling frame 0 of {num_frames}")
+        # print(f"Sampling frame 0 of {num_frames}")
         z_s, coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params)
         slat = self.sample_slat(cond, coords, slat_sampler_params)
         results_list = []
@@ -293,8 +294,8 @@ class TrellisImageTo4DPipeline(Pipeline):
         prev_slat = slat
 
         try:
-            for frame_idx in range(1, num_frames):
-                print(f"Sampling frame {frame_idx} of {num_frames}")
+            for frame_idx in trange(1, num_frames):
+                # print(f"Sampling frame {frame_idx} of {num_frames}")
                 ss_cond = {
                     "cond": prev_z_s,
                     "neg_cond": torch.zeros_like(prev_z_s),

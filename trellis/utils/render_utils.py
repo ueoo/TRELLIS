@@ -117,7 +117,9 @@ def render_video(
     yaws = yaws.tolist()
     pitch = pitch.tolist()
     extrinsics, intrinsics = yaw_pitch_r_fov_to_extrinsics_intrinsics(yaws, pitch, r, fov)
-    return render_frames(sample, extrinsics, intrinsics, {"resolution": resolution, "bg_color": bg_color}, **kwargs)
+    return render_frames(
+        sample, extrinsics, intrinsics, {"resolution": resolution, "bg_color": bg_color}, verbose=False, **kwargs
+    )
 
 
 def render_multiview(sample, resolution=512, nviews=30):
@@ -127,7 +129,9 @@ def render_multiview(sample, resolution=512, nviews=30):
     yaws = [cam[0] for cam in cams]
     pitchs = [cam[1] for cam in cams]
     extrinsics, intrinsics = yaw_pitch_r_fov_to_extrinsics_intrinsics(yaws, pitchs, r, fov)
-    res = render_frames(sample, extrinsics, intrinsics, {"resolution": resolution, "bg_color": (0, 0, 0)})
+    res = render_frames(
+        sample, extrinsics, intrinsics, {"resolution": resolution, "bg_color": (0, 0, 0)}, verbose=False
+    )
     return res["color"], extrinsics, intrinsics
 
 
@@ -145,4 +149,6 @@ def render_snapshot(
     yaw = [y + yaw_offset for y in yaw]
     pitch = [offset[1] for _ in range(4)]
     extrinsics, intrinsics = yaw_pitch_r_fov_to_extrinsics_intrinsics(yaw, pitch, r, fov)
-    return render_frames(samples, extrinsics, intrinsics, {"resolution": resolution, "bg_color": bg_color}, **kwargs)
+    return render_frames(
+        samples, extrinsics, intrinsics, {"resolution": resolution, "bg_color": bg_color}, verbose=False, **kwargs
+    )
