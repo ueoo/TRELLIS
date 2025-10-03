@@ -25,6 +25,10 @@ __attributes = {
     "LoRAElasticSLatFlowModel": "lora_wrappers_slat",
     "LoRASLatCondSLatFlowModel": "lora_wrappers_slat",
     "LoRAElasticSLatCondSLatFlowModel": "lora_wrappers_slat",
+    "LoRASLatEncoder": "lora_wrappers_slat_vae",
+    "LoRAElasticSLatEncoder": "lora_wrappers_slat_vae",
+    "LoRASLatGaussianDecoder": "lora_wrappers_slat_vae",
+    "LoRAElasticSLatGaussianDecoder": "lora_wrappers_slat_vae",
 }
 
 __submodules = []

@@ -429,7 +429,7 @@ class BasicTrainer(Trainer):
                 # Fill any missing keys (e.g., LoRA adapters) from current model state
                 for _k, _v in model_state_dict.items():
                     if _k not in model_ckpt:
-                        print(f"Warning: {_k} not found in finetune_ckpt, directly copied.")
+                        print(f"Warning: {_k} not found in finetune_ckpt, use model state dict.")
                         model_ckpt[_k] = _v
 
                 # Ensure all tensors are on the current device to avoid CPU/CUDA mixing
