@@ -86,6 +86,8 @@ class BasicTrainer(Trainer):
         """
         Initialize models and more.
         """
+        # LoRA save option
+        self.save_lora_only = bool(kwargs.get("save_lora_only", False))
         if self.world_size > 1:
             # Prepare distributed data parallel
             self.training_models = {
@@ -123,7 +125,9 @@ class BasicTrainer(Trainer):
                     if param.requires_grad:
                         num_trainable += 1
             if self.is_master:
-                print(f"Trainable parameter filtering enabled: {num_trainable}/{num_total} namedparams will be optimized.")
+                print(
+                    f"Trainable parameter filtering enabled: {num_trainable}/{num_total} namedparams will be optimized."
+                )
 
         # Build master params
         self.model_params = sum(
@@ -188,6 +192,14 @@ class BasicTrainer(Trainer):
             else:
                 self.grad_clip = getattr(grad_clip_utils, self.grad_clip["name"])(**self.grad_clip["args"])
 
+    @staticmethod
+    def _is_lora_key(key: str) -> bool:
+        return ("lora_A" in key) or ("lora_B" in key)
+
+    @classmethod
+    def _filter_state_dict_to_lora(cls, state_dict: dict) -> dict:
+        return {k: v for k, v in state_dict.items() if cls._is_lora_key(k)}
+
     def _master_params_to_state_dicts(self, master_params):
         """
         Convert master params to dict of state_dicts.
@@ -234,13 +246,34 @@ class BasicTrainer(Trainer):
 
         model_ckpts = {}
         for name, model in self.models.items():
-            model_ckpt = torch.load(
-                read_file_dist(os.path.join(load_dir, "ckpts", f"{name}_step{step:07d}.pt")),
-                map_location=self.device,
-                weights_only=True,
-            )
-            model_ckpts[name] = model_ckpt
-            model.load_state_dict(model_ckpt)
+            full_path = os.path.join(load_dir, "ckpts", f"{name}_step{step:07d}.pt")
+            lora_path = os.path.join(load_dir, "ckpts", f"{name}_lora_step{step:07d}.pt")
+            model_state = model.state_dict()
+            loaded = False
+            if os.path.exists(full_path):
+                model_ckpt = torch.load(
+                    read_file_dist(full_path),
+                    map_location=self.device,
+                    weights_only=True,
+                )
+                model_ckpts[name] = model_ckpt
+                model.load_state_dict(model_ckpt)
+                loaded = True
+            elif os.path.exists(lora_path):
+                # Load LoRA-only checkpoint and merge non-strict
+                lora_ckpt = torch.load(
+                    read_file_dist(lora_path),
+                    map_location=self.device,
+                    weights_only=True,
+                )
+                # Update only matching LoRA keys
+                model_state.update(lora_ckpt)
+                model.load_state_dict(model_state, strict=False)
+                model_ckpts[name] = model_state
+                loaded = True
+            else:
+                raise FileNotFoundError(f"No checkpoint found for model {name} at step {step}")
+
             if self.fp16_mode == "inflat_all":
                 model.convert_to_fp16()
         self._state_dicts_to_master_params(self.master_params, model_ckpts)
@@ -295,16 +328,36 @@ class BasicTrainer(Trainer):
         assert self.is_master, "save() should be called only by the rank 0 process."
         print(f"\nSaving checkpoint at step {self.step}...", end="")
 
-        model_ckpts = self._master_params_to_state_dicts(self.master_params)
-        for name, model_ckpt in model_ckpts.items():
-            torch.save(model_ckpt, os.path.join(self.output_dir, "ckpts", f"{name}_step{self.step:07d}.pt"))
+        if not self.save_lora_only:
+            model_ckpts = self._master_params_to_state_dicts(self.master_params)
+            for name, model_ckpt in model_ckpts.items():
+                torch.save(model_ckpt, os.path.join(self.output_dir, "ckpts", f"{name}_step{self.step:07d}.pt"))
 
-        for i, ema_rate in enumerate(self.ema_rate):
-            ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
-            for name, ema_ckpt in ema_ckpts.items():
-                torch.save(
-                    ema_ckpt, os.path.join(self.output_dir, "ckpts", f"{name}_ema{ema_rate}_step{self.step:07d}.pt")
-                )
+            for i, ema_rate in enumerate(self.ema_rate):
+                ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
+                for name, ema_ckpt in ema_ckpts.items():
+                    torch.save(
+                        ema_ckpt,
+                        os.path.join(self.output_dir, "ckpts", f"{name}_ema{ema_rate}_step{self.step:07d}.pt"),
+                    )
+        else:
+            # Save LoRA-only weights for each model; EMA LoRA-only as well
+            for name, model in self.models.items():
+                full_sd = model.state_dict()
+                lora_sd = self._filter_state_dict_to_lora(full_sd)
+                torch.save(lora_sd, os.path.join(self.output_dir, "ckpts", f"{name}_lora_step{self.step:07d}.pt"))
+            for i, ema_rate in enumerate(self.ema_rate):
+                ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
+                for name, ema_ckpt in ema_ckpts.items():
+                    ema_lora_sd = self._filter_state_dict_to_lora(ema_ckpt)
+                    torch.save(
+                        ema_lora_sd,
+                        os.path.join(
+                            self.output_dir,
+                            "ckpts",
+                            f"{name}_ema{ema_rate}_lora_step{self.step:07d}.pt",
+                        ),
+                    )
 
         misc_ckpt = {
             "optimizer": self.optimizer.state_dict(),
@@ -375,6 +428,13 @@ class BasicTrainer(Trainer):
                     if not k.startswith("mlp_layer_cond."):
                         continue
                     model_ckpt[k] = model_state_dict[k]
+
+                # Ensure conditional heads for structured latent flow are present when missing
+                # (covers both dense and sparse variants that add input_layer_cond / mlp_layer_cond)
+                for k, v in list(model_state_dict.items()):
+                    if k.startswith("input_layer_cond.") or k.startswith("mlp_layer_cond."):
+                        if k not in model_ckpt:
+                            model_ckpt[k] = v
 
                 # Ensure all tensors are on the current device to avoid CPU/CUDA mixing
                 for _k, _v in list(model_ckpt.items()):

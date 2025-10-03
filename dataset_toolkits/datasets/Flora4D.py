@@ -18,9 +18,10 @@ def add_args(parser: argparse.ArgumentParser):
     pass
 
 
-def get_metadata(split="train", **kwargs):
+def get_metadata(split="test", **kwargs):
     meta_file_name = f"growth_4d_data_flora_{split}.csv"
     metadata_path = os.path.join(FLORA_4D_DATA_ROOT, meta_file_name)
+    assert os.path.exists(metadata_path), f"Metadata file {metadata_path} does not exist"
 
     print(f"Loading metadata from {metadata_path}")
     metadata = pd.read_csv(metadata_path)

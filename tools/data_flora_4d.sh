@@ -1,6 +1,6 @@
 {
 
-# dataset_root=/viscam/projects/4d-state-machine/TRELLIS_datasets/Flora4D_train
+# dataset_root=/viscam/u/yuegao/TRELLIS_datasets/Flora4D_test
 
 dataset_root=/scr/yuegao/TRELLIS_datasets/Flora4D_train
 

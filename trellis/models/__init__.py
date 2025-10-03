@@ -19,6 +19,8 @@ __attributes = {
     "ElasticSLatFlowModel": "structured_latent_flow",
     "ElasticSLatCondSLatFlowModel": "structured_latent_flow",
     "ElasticPrevImageCondSLatFlowModel": "structured_latent_flow",
+    "LoRASparseStructureFlowModel": "lora_wrappers",
+    "LoRASLatFlowModel": "lora_wrappers",
 }
 
 __submodules = []
