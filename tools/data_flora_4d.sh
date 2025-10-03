@@ -25,13 +25,13 @@ dataset_root=/scr/yuegao/TRELLIS_datasets/Flora4D_train
 
 # python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
-python dataset_toolkits/extract_feature.py --output_dir $dataset_root
+# python dataset_toolkits/extract_feature.py --output_dir $dataset_root
 
-python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
+# python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
-python dataset_toolkits/encode_ss_latent.py Flora4D --output_dir $dataset_root
+# python dataset_toolkits/encode_ss_latent.py --output_dir $dataset_root
 
-python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
+# python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
 # python dataset_toolkits/encode_ss_latent.py \
 #     --output_dir $dataset_root \
@@ -45,7 +45,7 @@ python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
 # python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
-python dataset_toolkits/encode_latent.py --output_dir $dataset_root
+# python dataset_toolkits/encode_latent.py --output_dir $dataset_root
 
 # python dataset_toolkits/encode_latent.py \
 #     --output_dir $dataset_root \
@@ -54,7 +54,7 @@ python dataset_toolkits/encode_latent.py --output_dir $dataset_root
 #     --ckpt ema0.9999_step0200000 \
 
 
-python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
+# python dataset_toolkits/build_metadata.py Flora4D --output_dir $dataset_root
 
 exit 0
 }

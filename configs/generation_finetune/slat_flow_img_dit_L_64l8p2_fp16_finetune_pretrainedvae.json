@@ -1,7 +1,7 @@
 {
     "models": {
         "denoiser": {
-            "name": "ElasticSLatCondSLatFlowModel",
+            "name": "ElasticSLatFlowModel",
             "args": {
                 "resolution": 64,
                 "in_channels": 8,
@@ -21,11 +21,12 @@
         }
     },
     "dataset": {
-        "name": "SLatConditionedSLat",
+        "name": "ImageConditionedSLat",
         "args": {
-            "latent_model": "dinov2_vitl14_reg_slat_vae_enc_dec_gs_swin8_B_64l8_fp16_1node_finetune_growth4d_ema0.9999_step0200000",
+            "latent_model": "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16",
             "min_aesthetic_score": 4.5,
-            "max_num_voxels": 65536,
+            "max_num_voxels": 32768,
+            "image_size": 518,
             "normalization": {
                 "mean": [
                     -2.1687545776367188,
@@ -48,14 +49,13 @@
                     2.684523105621338
                 ]
             },
-            "slat_dec_path": "/viscam/projects/4d-state-machine/TRELLIS_outputs/slat_vae_enc_dec_gs_swin8_B_64l8_fp16_1node_finetune_growth4d",
-            "slat_dec_ckpt": "ema0.9999_step0200000"
+            "pretrained_slat_dec": "microsoft/TRELLIS-image-large/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16"
         }
     },
     "trainer": {
-        "name": "SLatConditionedSparseFlowMatchingCFGTrainer",
+        "name": "ImageConditionedSparseFlowMatchingCFGTrainer",
         "args": {
-            "max_steps": 1000000,
+            "max_steps": 100000,
             "batch_size_per_gpu": 4,
             "batch_split": 2,
             "num_workers": 8,
@@ -86,8 +86,8 @@
                 }
             },
             "i_log": 500,
-            "i_sample": 5000,
-            "i_save": 5000,
+            "i_sample": 10000,
+            "i_save": 10000,
             "p_uncond": 0.1,
             "t_schedule": {
                 "name": "logitNormal",
@@ -97,6 +97,7 @@
                 }
             },
             "sigma_min": 1e-5,
+            "image_cond_model": "dinov2_vitl14_reg",
             "finetune_ckpt": {
                 "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/slat_flow_img_dit_L_64l8p2_fp16.safetensors"
             }
