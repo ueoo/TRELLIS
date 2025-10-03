@@ -19,8 +19,12 @@ __attributes = {
     "ElasticSLatFlowModel": "structured_latent_flow",
     "ElasticSLatCondSLatFlowModel": "structured_latent_flow",
     "ElasticPrevImageCondSLatFlowModel": "structured_latent_flow",
-    "LoRASparseStructureFlowModel": "lora_wrappers",
-    "LoRASLatFlowModel": "lora_wrappers",
+    "LoRASparseStructureFlowModel": "lora_wrappers_sparse",
+    "LoRASparseStructureLatentCondSparseStructureFlowModel": "lora_wrappers_sparse",
+    "LoRASLatFlowModel": "lora_wrappers_slat",
+    "LoRAElasticSLatFlowModel": "lora_wrappers_slat",
+    "LoRASLatCondSLatFlowModel": "lora_wrappers_slat",
+    "LoRAElasticSLatCondSLatFlowModel": "lora_wrappers_slat",
 }
 
 __submodules = []

@@ -404,6 +404,7 @@ class BasicTrainer(Trainer):
                                 f"Warning: {k} shape mismatch, {model_ckpt[k].shape} vs {model_state_dict[k].shape}, skipped."
                             )
                         model_ckpt[k] = model_state_dict[k]
+
                 # hack for the newly added input_layer_cond in sparse_structure_flow
                 # Mirror from input_layer -> input_layer_cond ONLY when shapes match; otherwise skip
 
@@ -423,18 +424,13 @@ class BasicTrainer(Trainer):
                             )
                         model_ckpt[k_cond] = model_state_dict[k_cond]
 
-                # skip mlp_layer_cond
-                for k, v in list(model_state_dict.items()):
-                    if not k.startswith("mlp_layer_cond."):
-                        continue
-                    model_ckpt[k] = model_state_dict[k]
-
-                # Ensure conditional heads for structured latent flow are present when missing
-                # (covers both dense and sparse variants that add input_layer_cond / mlp_layer_cond)
-                for k, v in list(model_state_dict.items()):
-                    if k.startswith("input_layer_cond.") or k.startswith("mlp_layer_cond."):
-                        if k not in model_ckpt:
-                            model_ckpt[k] = v
+                # Ensure conditional and adapter parameters are present will be handled by the generic
+                # missing-keys fill below.
+                # Fill any missing keys (e.g., LoRA adapters) from current model state
+                for _k, _v in model_state_dict.items():
+                    if _k not in model_ckpt:
+                        print(f"Warning: {_k} not found in finetune_ckpt, directly copied.")
+                        model_ckpt[_k] = _v
 
                 # Ensure all tensors are on the current device to avoid CPU/CUDA mixing
                 for _k, _v in list(model_ckpt.items()):
