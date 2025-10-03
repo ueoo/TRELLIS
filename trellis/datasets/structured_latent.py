@@ -12,6 +12,7 @@ from ..modules.sparse.basic import SparseTensor
 from ..utils.data_utils import load_balanced_group_indices
 from ..utils.render_utils import get_renderer
 from .components import (
+    ImageAllConditionedMixin,
     ImageConditionedMixin,
     PrevImageCondConditionedMixin,
     PrevImageConditionedMixin,
@@ -264,6 +265,14 @@ class TextConditionedSLat(TextConditionedMixin, SLat):
 class ImageConditionedSLat(ImageConditionedMixin, SLat):
     """
     Image conditioned structured latent dataset
+    """
+
+    pass
+
+
+class ImageAllConditionedSLat(ImageAllConditionedMixin, SLat):
+    """
+    Image-all-conditioned structured latent dataset
     """
 
     pass

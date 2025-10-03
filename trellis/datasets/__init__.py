@@ -9,12 +9,14 @@ __attributes = {
     "SparseStructureLatent": "sparse_structure_latent",
     "TextConditionedSparseStructureLatent": "sparse_structure_latent",
     "ImageConditionedSparseStructureLatent": "sparse_structure_latent",
+    "ImageAllConditionedSparseStructureLatent": "sparse_structure_latent",
     "SparseStructureLatentConditionedSparseStructureLatent": "sparse_structure_latent",
     "PrevImageConditionedSparseStructureLatent": "sparse_structure_latent",
     "PrevImageCondConditionedSparseStructureLatent": "sparse_structure_latent",
     "SLat": "structured_latent",
     "TextConditionedSLat": "structured_latent",
     "ImageConditionedSLat": "structured_latent",
+    "ImageAllConditionedSLat": "structured_latent",
     "SLatConditionedSLat": "structured_latent",
     "PrevImageConditionedSLat": "structured_latent",
     "PrevImageCondConditionedSLat": "structured_latent",
@@ -45,6 +47,7 @@ if __name__ == "__main__":
     from .sparse_structure import SparseStructure
     from .sparse_structure_latent import (
         ImageConditionedSparseStructureLatent,
+        ImageAllConditionedSparseStructureLatent,
         PrevImageCondConditionedSparseStructureLatent,
         PrevImageConditionedSparseStructureLatent,
         SparseStructureLatent,
@@ -53,6 +56,7 @@ if __name__ == "__main__":
     )
     from .structured_latent import (
         ImageConditionedSLat,
+        ImageAllConditionedSLat,
         PrevImageCondConditionedSLat,
         PrevImageConditionedSLat,
         SLat,

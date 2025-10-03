@@ -11,6 +11,7 @@ from .. import models
 from ..renderers import OctreeRenderer
 from ..representations.octree import DfsOctree as Octree
 from .components import (
+    ImageAllConditionedMixin,
     ImageConditionedMixin,
     PrevImageCondConditionedMixin,
     PrevImageConditionedMixin,
@@ -217,6 +218,14 @@ class TextConditionedSparseStructureLatent(TextConditionedMixin, SparseStructure
 class ImageConditionedSparseStructureLatent(ImageConditionedMixin, SparseStructureLatent):
     """
     Image-conditioned sparse structure dataset
+    """
+
+    pass
+
+
+class ImageAllConditionedSparseStructureLatent(ImageAllConditionedMixin, SparseStructureLatent):
+    """
+    Image-all-conditioned sparse structure dataset
     """
 
     pass
