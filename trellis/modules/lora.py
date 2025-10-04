@@ -44,21 +44,12 @@ class LoRALinear(nn.Linear):
             self.lora_dropout = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Align parameter dtypes with input dtype to avoid Half/Float mismatches
-        input_dtype = x.dtype
-        weight = self.weight if self.weight.dtype == input_dtype else self.weight.to(input_dtype)
-        bias = None
-        if self.bias is not None:
-            bias = self.bias if self.bias.dtype == input_dtype else self.bias.to(input_dtype)
-
-        base_out = F.linear(x, weight, bias)
+        base_out = F.linear(x, self.weight, self.bias)
         if self.lora_r == 0 or self.lora_scaling == 0.0:
             return base_out
         x_d = self.lora_dropout(x)
         # (x @ A) @ B == x @ (A @ B)
-        A = self.lora_A if self.lora_A.dtype == input_dtype else self.lora_A.to(input_dtype)
-        B = self.lora_B if self.lora_B.dtype == input_dtype else self.lora_B.to(input_dtype)
-        lora_out = x_d.matmul(A).matmul(B)
+        lora_out = x_d.matmul(self.lora_A).matmul(self.lora_B)
         return base_out + lora_out * self.lora_scaling
 
 
@@ -81,6 +72,8 @@ def _wrap_linear_with_lora(
         alpha=alpha,
         dropout=dropout,
     )
+    # Ensure the wrapped layer matches the original layer's device and dtype
+    new_linear = new_linear.to(device=linear.weight.device, dtype=linear.weight.dtype)
     # Copy base params
     with torch.no_grad():
         new_linear.weight.copy_(linear.weight.data)
@@ -93,12 +86,6 @@ def _wrap_linear_with_lora(
         new_linear.bias.requires_grad = train_bias in ("all",)
 
     if new_linear.lora_A is not None:
-        # Match LoRA parameter dtype to base weight dtype to reduce casting overhead
-        with torch.no_grad():
-            if new_linear.lora_A.dtype != new_linear.weight.dtype:
-                new_linear.lora_A.data = new_linear.lora_A.data.to(new_linear.weight.dtype)
-            if new_linear.lora_B.dtype != new_linear.weight.dtype:
-                new_linear.lora_B.data = new_linear.lora_B.data.to(new_linear.weight.dtype)
         new_linear.lora_A.requires_grad = True
         new_linear.lora_B.requires_grad = True
 

@@ -86,16 +86,9 @@ def build_folder(
         type_key = "denoiser" if "flow" in key else "decoder"
         model_def = finetune_json["models"][type_key]
 
-        # LoRA: also copy base and swap name to wrapper
+        # LoRA: only change class name to wrapper; do NOT copy base weights
         if lora_wrapper_name is not None:
             assert key in lora_wrapper_name, f"Key '{key}' not in lora_wrapper_name."
-
-            base_key = LORA_BASE_FALLBACK[key]
-            base_ref_stem = reference_models[base_key].replace("ckpts/", "")
-
-            ref_sf = os.path.join(reference_ckpts_path, f"{base_ref_stem}.safetensors")
-            base_sf = os.path.join(dest_root, f"{op_or_name}.base.safetensors")
-            os.system(f"cp {ref_sf} {base_sf}")
             model_def = {"name": lora_wrapper_name[key], "args": model_def["args"]}
 
         with open(os.path.join(dest_root, f"{op_or_name}.json"), "w") as f:

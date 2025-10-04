@@ -25,16 +25,21 @@ from trellis.utils import postprocessing_utils, render_utils
 project_root = "/viscam/projects/4d-state-machine"
 results_root = "/viscam/projects/4d-state-machine/TRELLIS_results"
 
-finetune_name = "-pretrainedvae-fullflow"
+# finetune_name = "-pretrainedvae-fullflow"
+# finetune_name = "-pretrainedvae-fullflow-10k"
+# finetune_name = "-pretrainedvae-fullflow-50k"
 # finetune_name = "-pretrainedvae-fullflow-ema"
+# finetune_name = "-pretrainedvae-fullflow-ema-10k"
 # finetune_name = "-pretrainedvae-fullflow-ema-imgflow10k"
+
+# finetune_name = "-pretrainedvae-fullflow-lora"
+finetune_name = "-pretrainedvae-fullflow-lora-test"
+
 # finetune_name = "-pretrainedvae-prevflow"
 # finetune_name = "-pretrainedvae-prevflow-ema"
 # finetune_name = "-pretrainedvae-prevflow-ema-flow50k"
 # finetune_name = "-pretrainedvae-prevflow-ema-flow10k"
 # finetune_name = "-pretrainedvae-prevflow-ema-flow10k"
-# finetune_name = "-pretrainedvae-loraflow"
-# finetune_name = "-pretrainedvae-loraprevflow"
 
 pipeline_path = f"{project_root}/TRELLIS-image-large-flora4d{finetune_name}"
 print(f"Loading pipeline from {pipeline_path}")
@@ -63,8 +68,8 @@ train_cond_frame_paths = [
 ]
 
 # cond_frame_paths = test_cond_frame_paths + train_cond_frame_paths
-# cond_frame_paths = train_cond_frame_paths
-cond_frame_paths = test_cond_frame_paths
+cond_frame_paths = train_cond_frame_paths
+# cond_frame_paths = test_cond_frame_paths
 num_frames = 60
 
 for cond_frame_path in cond_frame_paths:

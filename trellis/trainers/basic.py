@@ -86,8 +86,8 @@ class BasicTrainer(Trainer):
         """
         Initialize models and more.
         """
-        # LoRA save option
-        self.save_lora_only = bool(kwargs.get("save_lora_only", False))
+        # Always save full checkpoints; LoRA-only saving removed
+        self.save_lora_only = False
         if self.world_size > 1:
             # Prepare distributed data parallel
             self.training_models = {
@@ -328,36 +328,17 @@ class BasicTrainer(Trainer):
         assert self.is_master, "save() should be called only by the rank 0 process."
         print(f"\nSaving checkpoint at step {self.step}...", end="")
 
-        if not self.save_lora_only:
-            model_ckpts = self._master_params_to_state_dicts(self.master_params)
-            for name, model_ckpt in model_ckpts.items():
-                torch.save(model_ckpt, os.path.join(self.output_dir, "ckpts", f"{name}_step{self.step:07d}.pt"))
+        model_ckpts = self._master_params_to_state_dicts(self.master_params)
+        for name, model_ckpt in model_ckpts.items():
+            torch.save(model_ckpt, os.path.join(self.output_dir, "ckpts", f"{name}_step{self.step:07d}.pt"))
 
-            for i, ema_rate in enumerate(self.ema_rate):
-                ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
-                for name, ema_ckpt in ema_ckpts.items():
-                    torch.save(
-                        ema_ckpt,
-                        os.path.join(self.output_dir, "ckpts", f"{name}_ema{ema_rate}_step{self.step:07d}.pt"),
-                    )
-        else:
-            # Save LoRA-only weights for each model; EMA LoRA-only as well
-            for name, model in self.models.items():
-                full_sd = model.state_dict()
-                lora_sd = self._filter_state_dict_to_lora(full_sd)
-                torch.save(lora_sd, os.path.join(self.output_dir, "ckpts", f"{name}_lora_step{self.step:07d}.pt"))
-            for i, ema_rate in enumerate(self.ema_rate):
-                ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
-                for name, ema_ckpt in ema_ckpts.items():
-                    ema_lora_sd = self._filter_state_dict_to_lora(ema_ckpt)
-                    torch.save(
-                        ema_lora_sd,
-                        os.path.join(
-                            self.output_dir,
-                            "ckpts",
-                            f"{name}_ema{ema_rate}_lora_step{self.step:07d}.pt",
-                        ),
-                    )
+        for i, ema_rate in enumerate(self.ema_rate):
+            ema_ckpts = self._master_params_to_state_dicts(self.ema_params[i])
+            for name, ema_ckpt in ema_ckpts.items():
+                torch.save(
+                    ema_ckpt,
+                    os.path.join(self.output_dir, "ckpts", f"{name}_ema{ema_rate}_step{self.step:07d}.pt"),
+                )
 
         misc_ckpt = {
             "optimizer": self.optimizer.state_dict(),

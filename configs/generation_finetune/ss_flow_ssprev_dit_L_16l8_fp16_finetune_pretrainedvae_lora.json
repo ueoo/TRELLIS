@@ -67,8 +67,7 @@
                 }
             },
             "sigma_min": 1e-5,
-            "save_lora_only": true,
-            "trainable_param_names": ["lora_A", "lora_B", "input_layer_cond", "mlp_layer_cond"],
+            "trainable_param_names": ["lora_A", "lora_B", "input_layer_cond"],
             "finetune_ckpt": {
                 "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/ss_flow_img_dit_L_16l8_fp16.safetensors"
             }

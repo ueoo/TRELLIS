@@ -102,7 +102,6 @@
             },
             "sigma_min": 1e-5,
             "image_cond_model": "dinov2_vitl14_reg",
-            "save_lora_only": true,
             "trainable_param_names": ["lora_A", "lora_B"],
             "finetune_ckpt": {
                 "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/slat_flow_img_dit_L_64l8p2_fp16.safetensors"

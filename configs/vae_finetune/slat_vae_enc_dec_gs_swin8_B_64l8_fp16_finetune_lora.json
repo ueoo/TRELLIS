@@ -109,7 +109,6 @@
                 "lambda_vol": 10000.0,
                 "lambda_opacity": 0.001
             },
-            "save_lora_only": true,
             "trainable_param_names": ["lora_A", "lora_B"],
             "finetune_ckpt": {
                 "encoder": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/slat_enc_swin8_B_64l8_fp16.safetensors",
