@@ -80,8 +80,37 @@ def from_pretrained(path: str, **kwargs):
 
     with open(config_file, "r") as f:
         config = json.load(f)
-    model = __getattr__(config["name"])(**config["args"], **kwargs)
-    model.load_state_dict(load_file(model_file))
+    model_name = config["name"]
+    model_args = {**config.get("args", {}), **kwargs}
+
+    model = __getattr__(model_name)(**model_args)
+
+    # Support LoRA finetuned checkpoints: if the model is a LoRA wrapper, first
+    # try to load an accompanying base weights file, then load LoRA adapters.
+    is_lora_model = isinstance(model_name, str) and ("LoRA" in model_name)
+    if is_lora_model:
+        base_file = None
+        # Priority: explicit in config args (optional), otherwise sibling file with .base.safetensors
+        if "base_model_file" in model_args and os.path.exists(model_args["base_model_file"]):
+            base_file = model_args["base_model_file"]
+        else:
+            sibling_base = f"{path}.base.safetensors"
+            if os.path.exists(sibling_base):
+                base_file = sibling_base
+        if base_file is not None:
+            try:
+                base_state = load_file(base_file)
+                model.load_state_dict(base_state, strict=False)
+            except Exception as e:
+                print(f"Warning: {base_file} load failed {e}")
+        else:
+            print(f"Warning: lora {model_name} base weights not found, skipped.")
+        # Load LoRA adapters (may be adapter-only)
+        lora_state = load_file(model_file)
+        model.load_state_dict(lora_state, strict=False)
+    else:
+        # Regular full checkpoint
+        model.load_state_dict(load_file(model_file))
 
     return model
 

@@ -25,13 +25,18 @@ from trellis.utils import postprocessing_utils, render_utils
 project_root = "/viscam/projects/4d-state-machine"
 results_root = "/viscam/projects/4d-state-machine/TRELLIS_results"
 
+finetune_name = "-pretrainedvae-fullflow"
 # finetune_name = "-pretrainedvae-fullflow-ema"
 # finetune_name = "-pretrainedvae-fullflow-ema-imgflow10k"
+# finetune_name = "-pretrainedvae-prevflow"
 # finetune_name = "-pretrainedvae-prevflow-ema"
 # finetune_name = "-pretrainedvae-prevflow-ema-flow50k"
-finetune_name = "-pretrainedvae-prevflow-ema-flow10k"
+# finetune_name = "-pretrainedvae-prevflow-ema-flow10k"
+# finetune_name = "-pretrainedvae-prevflow-ema-flow10k"
+# finetune_name = "-pretrainedvae-loraflow"
+# finetune_name = "-pretrainedvae-loraprevflow"
 
-pipeline_path = f"{project_root}/TRELLIS-image-large-finetune-flora4d{finetune_name}"
+pipeline_path = f"{project_root}/TRELLIS-image-large-flora4d{finetune_name}"
 print(f"Loading pipeline from {pipeline_path}")
 pipeline = TrellisImageTo4DPipeline.from_pretrained(pipeline_path)
 pipeline.cuda()
@@ -57,8 +62,9 @@ train_cond_frame_paths = [
     os.path.join(train_data_root, render_folder, cond_frame_name) for cond_frame_name in selected_train_cond_frames
 ]
 
-cond_frame_paths = test_cond_frame_paths + train_cond_frame_paths
+# cond_frame_paths = test_cond_frame_paths + train_cond_frame_paths
 # cond_frame_paths = train_cond_frame_paths
+cond_frame_paths = test_cond_frame_paths
 num_frames = 60
 
 for cond_frame_path in cond_frame_paths:
@@ -75,6 +81,7 @@ for cond_frame_path in cond_frame_paths:
     outputs = pipeline.run(image, seed=1, formats=["gaussian"], num_frames=num_frames)
 
     output_folder = os.path.join(results_root, f"results_flora4d{finetune_name.replace('-', '_')}_renders")
+    print(f"Saving outputs to {output_folder}")
 
     sub_folder = f"sample_gs_{num_frames}_{split}_scene_{cond_scene_name}_frame_{cond_frame_name}{finetune_name.replace('-', '_')}"
     os.makedirs(os.path.join(output_folder, sub_folder), exist_ok=True)
