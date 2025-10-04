@@ -1,5 +1,5 @@
 {
-export CUDA_VISIBLE_DEVICES=3
+# export CUDA_VISIBLE_DEVICES=3
 python train.py \
     --config configs/generation_finetune/ss_flow_ssprev_dit_L_16l8_fp16_finetune_pretrainedvae_lora.json \
     --output_dir /viscam/projects/4d-state-machine/TRELLIS_outputs/ss_flow_ssprev_dit_pretrainedvae_lora_flora4d \
