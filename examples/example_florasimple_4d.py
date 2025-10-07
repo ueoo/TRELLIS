@@ -28,37 +28,34 @@ results_root = "/viscam/projects/4d-state-machine/TRELLIS_results"
 # finetune_name = "-pretrainedvae-fullflow"
 # finetune_name = "-pretrainedvae-fullflow-10k"
 # finetune_name = "-pretrainedvae-fullflow-50k"
-# finetune_name = "-pretrainedvae-fullflow-ema"
-# finetune_name = "-pretrainedvae-fullflow-ema-10k"
-# finetune_name = "-pretrainedvae-fullflow-ema-imgflow10k"
 
 # finetune_name = "-pretrainedvae-fullflow-lora"
-finetune_name = "-pretrainedvae-fullflow-mlp"
 # finetune_name = "-pretrainedvae-fullflow-lora-10k"
 # finetune_name = "-pretrainedvae-fullflow-lora-200k"
 # finetune_name = "-pretrainedvae-prevflow-lora-100k"
 
-# finetune_name = "-pretrainedvae-prevflow"
+finetune_name = "-pretrainedvae-prevflow-lora"
 
-pipeline_path = f"{project_root}/TRELLIS-frompretrained/TRELLIS-image-large-flora4d{finetune_name}"
+pipeline_path = f"{project_root}/TRELLIS-frompretrained/TRELLIS-image-large-florasimple4d{finetune_name}"
 
 print(f"Loading pipeline from {pipeline_path}")
 pipeline = TrellisImageTo4DPipeline.from_pretrained(pipeline_path)
 pipeline.cuda()
 
-output_folder = os.path.join(results_root, f"results_flora4d{finetune_name.replace('-', '_')}_renders")
+output_folder = os.path.join(results_root, f"results_florasimple4d{finetune_name.replace('-', '_')}_renders")
 print(f"Saving outputs to {output_folder}")
 
-test_data_root = "/viscam/u/yuegao/TRELLIS_datasets/Flora4D_test"
+test_data_root = "/viscam/u/yuegao/TRELLIS_datasets/FloraSimple4D_test"
 
 selected_test_cond_frames = [
-    "jmfloraorchidstemg_0001/000.png",
+    "florag_0001/000.png",
 ]
 
-train_data_root = "/scr/yuegao/TRELLIS_datasets/Flora4D_train"
+train_data_root = "/scr/yuegao/TRELLIS_datasets/FloraSimple4D_train"
 selected_train_cond_frames = [
-    "jmfloraorchidstema_0001/000.png",
+    "floraa_0001/000.png",
 ]
+
 
 render_folder = "renders"
 
@@ -70,8 +67,8 @@ train_cond_frame_paths = [
     os.path.join(train_data_root, render_folder, cond_frame_name) for cond_frame_name in selected_train_cond_frames
 ]
 
-cond_frame_paths = test_cond_frame_paths + train_cond_frame_paths
-# cond_frame_paths = train_cond_frame_paths
+# cond_frame_paths = test_cond_frame_paths + train_cond_frame_paths
+cond_frame_paths = train_cond_frame_paths
 # cond_frame_paths = test_cond_frame_paths
 num_frames = 60
 

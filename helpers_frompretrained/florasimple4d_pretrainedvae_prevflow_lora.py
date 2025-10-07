@@ -1,0 +1,38 @@
+from common import build_folder
+
+
+our_finetune_folder = "TRELLIS-image-large-florasimple4d-pretrainedvae-prevflow-lora"
+
+# Map model keys to their LoRA training run directories
+rename_ops = {
+    "sparse_structure_decoder": "copy",
+    "sparse_structure_flow_model": "copy",
+    "sparse_structure_cond_sparse_structure_flow_model": "ss_flow_ssprev_dit_pretrainedvae_lora_florasimple4d",
+    "slat_decoder_gs": "copy",
+    "slat_flow_model": "copy",
+    "slat_cond_slat_flow_model": "slat_flow_slatprev_dit_pretrainedvae_lora_florasimple4d",
+}
+
+# Provide only adapter filenames; run dirs come from rename_ops
+model_name_to_ckpt = {
+    # "sparse_structure_flow_model": "denoiser_step0010000.pt",
+    "sparse_structure_cond_sparse_structure_flow_model": "denoiser_step0110000.pt",
+    # "slat_flow_model": "denoiser_step0010000.pt",
+    "slat_cond_slat_flow_model": "denoiser_step0310000.pt",
+}
+
+lora_wrapper_name = {
+    # "sparse_structure_flow_model": "LoRASparseStructureFlowModel",
+    "sparse_structure_cond_sparse_structure_flow_model": "LoRASparseStructureLatentCondSparseStructureFlowModel",
+    # "slat_flow_model": "LoRAElasticSLatFlowModel",
+    "slat_cond_slat_flow_model": "LoRAElasticSLatCondSLatFlowModel",
+}
+
+
+build_folder(
+    out_folder=our_finetune_folder,
+    pipeline_name="TrellisImageTo4DPipeline",
+    rename_ops=rename_ops,
+    model_name_to_ckpt=model_name_to_ckpt,
+    lora_wrapper_name=lora_wrapper_name,
+)

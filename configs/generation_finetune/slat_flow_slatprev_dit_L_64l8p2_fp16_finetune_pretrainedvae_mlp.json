@@ -59,7 +59,7 @@
                 "input_layer_cond",
                 "mlp_layer_cond"
             ],
-            "max_steps": 100000,
+            "max_steps": 1000000,
             "batch_size_per_gpu": 4,
             "batch_split": 2,
             "num_workers": 8,

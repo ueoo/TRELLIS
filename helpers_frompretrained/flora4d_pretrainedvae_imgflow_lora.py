@@ -1,7 +1,7 @@
 from common import build_folder
 
 
-our_finetune_folder = "TRELLIS-image-large-flora4d-pretrainedvae-fullflow-lora"
+our_finetune_folder = "TRELLIS-image-large-flora4d-pretrainedvae-fullflow-lora-100k"
 
 
 # Map model keys to their LoRA training run directories
@@ -16,10 +16,10 @@ rename_ops = {
 
 # Provide only adapter filenames; run dirs come from rename_ops
 model_name_to_ckpt = {
-    "sparse_structure_flow_model": "denoiser_step0200000.pt",
+    "sparse_structure_flow_model": "denoiser_step0100000.pt",
     "sparse_structure_cond_sparse_structure_flow_model": "denoiser_step0100000.pt",
-    "slat_flow_model": "denoiser_step0200000.pt",
-    "slat_cond_slat_flow_model": "denoiser_step0200000.pt",
+    "slat_flow_model": "denoiser_step0100000.pt",
+    "slat_cond_slat_flow_model": "denoiser_step0100000.pt",
 }
 
 lora_wrapper_name = {

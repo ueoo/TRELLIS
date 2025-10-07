@@ -45,7 +45,7 @@ def build_folder(
     reference_path = os.path.join(DATA_ROOT, REFERENCE_FOLDER)
     reference_ckpts_path = os.path.join(reference_path, "ckpts")
 
-    out_path = os.path.join(DATA_ROOT, out_folder)
+    out_path = os.path.join(DATA_ROOT, "TRELLIS-frompretrained", out_folder)
     dest_root = os.path.join(out_path, "ckpts")
     os.makedirs(dest_root, exist_ok=True)
 

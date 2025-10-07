@@ -21,33 +21,33 @@ from trellis.utils import postprocessing_utils, render_utils
 
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline_path = "/viscam/projects/4d-state-machine/TRELLIS-image-large"
-# pipeline_path = "/viscam/projects/4d-state-machine/TRELLIS-image-large-flora3d-pretrainedvae-imgflow-lora-10k"
+# pipeline_path = "/viscam/projects/4d-state-machine/TRELLIS-image-large"
+pipeline_path = "/viscam/projects/4d-state-machine/TRELLIS-frompretrained/TRELLIS-image-large-florasimple3d-pretrainedvae-imgflow-lora"
 print(f"Loading pipeline from {pipeline_path}")
 pipeline = TrellisImageTo3DPipeline.from_pretrained(pipeline_path)
 pipeline.cuda()
 
 start_frame = 1
-end_frame = 120
+end_frame = 100
 
 
-output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_flora3d_flipupdown"
-# output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_flora3d_pretrainedvae_imgflow_lora_10k"
+# output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_flora3d"
+output_folder = "/viscam/projects/4d-state-machine/TRELLIS_results/results_florasimple3d_pretrainedvae_imgflow_lora"
 os.makedirs(output_folder, exist_ok=True)
 
-data_folder = "/viscam/u/yuegao/TRELLIS_datasets/Flora4D_test/renders/"
-test_scene_name = "jmfloraorchidstemg"
+data_folder = "/viscam/u/yuegao/TRELLIS_datasets/FloraSimple4D_test/renders/"
+test_scene_name = "florag"
 
-# data_folder = "/scr/yuegao/TRELLIS_datasets/Flora4D_train/renders/"
-# test_scene_name = "jmfloraorchidstema"
+# data_folder = "/scr/yuegao/TRELLIS_datasets/FloraSimple4D_train/renders/"
+# test_scene_name = "floraa"
 
 
 all_videos = []
-for frame in trange(start_frame, end_frame + 1, desc="Generating frames"):
+for frame in trange(start_frame, end_frame + 1, desc=f"Generating frames for {test_scene_name}"):
     # Load an image
     input_frame_name = f"{test_scene_name}_{frame:04d}/000.png"
     image = Image.open(f"{data_folder}/{input_frame_name}")
-    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+    # image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
     output_frame_name = f"{test_scene_name}_frame_{frame:03d}.png"
     image.save(f"{output_folder}/{output_frame_name}")
