@@ -35,12 +35,20 @@ def download(metadata, output_dir, **kwargs):
     annotations = oxl.get_annotations()
     annotations = annotations[annotations["sha256"].isin(metadata["sha256"].values)]
 
-    # download and render objects
-    file_paths = oxl.download_objects(
-        annotations,
-        download_dir=os.path.join(output_dir, "raw"),
-        save_repo_format="zip",
-    )
+    while True:
+        try:
+            # download and render objects
+            file_paths = oxl.download_objects(
+                annotations,
+                download_dir=os.path.join(output_dir, "raw"),
+                save_repo_format="zip",
+                processes=32,
+            )
+            if len(file_paths) == len(annotations):
+                break
+        except Exception as e:
+            print(f"Error downloading objects: {e}")
+            continue
 
     downloaded = {}
     metadata = metadata.set_index("file_identifier")

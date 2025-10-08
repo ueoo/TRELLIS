@@ -53,8 +53,35 @@ def init_render(engine="BLENDER_EEVEE", resolution=512, geo_mode=False):
         bpy.context.scene.cycles.transmission_bounces = 3 if not geo_mode else 1
         bpy.context.scene.cycles.use_denoising = True
 
-        bpy.context.preferences.addons["cycles"].preferences.get_devices()
-        bpy.context.preferences.addons["cycles"].preferences.compute_device_type = "CUDA"
+        # Prefer GPU backends and ensure GPU devices are enabled, CPU disabled
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+        prefs.get_devices()
+        for backend in ["OPTIX", "CUDA", "HIP", "METAL"]:
+            try:
+                prefs.compute_device_type = backend
+                prefs.get_devices()
+                # If we found any GPU-like device, keep this backend
+                if any(d.type in {"CUDA", "OPTIX", "HIP", "METAL"} for d in prefs.devices):
+                    break
+            except Exception:
+                continue
+        for d in prefs.devices:
+            d.use = d.type in {"CUDA", "OPTIX", "HIP", "METAL"}
+
+        # Use GPU denoiser when available to reduce CPU load
+        try:
+            bpy.context.scene.cycles.denoiser = "OPTIX"
+        except Exception:
+            try:
+                bpy.context.scene.cycles.denoiser = "OPENIMAGEDENOISE"
+            except Exception:
+                pass
+
+        # Reuse data across frames to reduce CPU rebuilds
+        bpy.context.scene.cycles.use_persistent_data = True
+        # Adaptive sampling for faster renders on simple regions
+        bpy.context.scene.cycles.use_adaptive_sampling = True
+        bpy.context.scene.cycles.adaptive_threshold = 0.01
 
     elif engine == "BLENDER_EEVEE":
         bpy.context.scene.eevee.taa_render_samples = 4
@@ -523,8 +550,7 @@ def main(arg):
                 output.file_slots[0].path = os.path.join(arg.output_folder, f"{i:03d}_{name}")
 
             # Render the scene
-            if arg.render_frames:
-                bpy.ops.render.render(write_still=True)
+            bpy.ops.render.render(write_still=True)
             bpy.context.view_layer.update()
             for name, output in outputs.items():
                 ext = EXT[output.format.file_format]
@@ -545,9 +571,8 @@ def main(arg):
             to_export["frames"].append(metadata)
 
         # Save the camera parameters
-        if arg.render_frames:
-            with open(json_file, "w") as f:
-                json.dump(to_export, f, indent=4)
+        with open(json_file, "w") as f:
+            json.dump(to_export, f, indent=4)
 
     if arg.save_mesh:
         mesh_file_path = os.path.join(arg.output_folder, "mesh.ply")
@@ -583,7 +608,6 @@ if __name__ == "__main__":
     parser.add_argument("--save_mist", action="store_true", help="Save the mist distance maps.")
     parser.add_argument("--split_normal", action="store_true", help="Split the normals of the mesh.")
     parser.add_argument("--save_mesh", action="store_true", help="Save the mesh as a .ply file.")
-    parser.add_argument("--render_frames", action="store_true", help="Render the frames.")
     parser.add_argument("--scene_scale", type=float, default=1.0, help="Scene scaler for rendering.")
     # For regrowth, we use 1.5 as the scene scale. and turn off normalize_scene
     argv = sys.argv[sys.argv.index("--") + 1 :]

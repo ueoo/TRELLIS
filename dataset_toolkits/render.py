@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from easydict import EasyDict as edict
+from tqdm import tqdm
 from utils import sphere_hammersley_sequence
 
 
@@ -30,7 +31,7 @@ def _install_blender():
         )
 
 
-def _render(file_path, sha256, output_dir, r=1.3, num_views=100, render_frames=True):
+def _render(file_path, sha256, output_dir, r=1.5, num_views=100):
     output_folder = os.path.join(output_dir, "renders", sha256)
 
     # Build camera {yaw, pitch, radius, fov}
@@ -63,8 +64,6 @@ def _render(file_path, sha256, output_dir, r=1.3, num_views=100, render_frames=T
         "CYCLES",
         "--save_mesh",
     ]
-    if render_frames:
-        args.append("--render_frames")
     if file_path.endswith(".blend"):
         args.insert(1, file_path)
 
@@ -90,14 +89,19 @@ if __name__ == "__main__":
     )
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
     parser.add_argument("--num_views", type=int, default=100, help="Number of views to render")
-    parser.add_argument("--radius", type=float, default=1.3, help="Radius of the camera")
-    parser.add_argument("--render_frames", type=bool, default=True, help="Render frames")
+    parser.add_argument("--radius", type=float, default=1.5, help="Radius of the camera")
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
     parser.add_argument("--max_workers", type=int, default=6)
+    parser.add_argument("--gpu_idx", type=int, default=0)
+    parser.add_argument("--gpu_num", type=int, default=8)
     opt = parser.parse_args(sys.argv[2:])
     opt = edict(vars(opt))
+
+    # Pin this process to a single GPU (so Blender uses the intended device)
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(opt.gpu_idx)
 
     os.makedirs(os.path.join(opt.output_dir, "renders"), exist_ok=True)
 
@@ -113,6 +117,9 @@ if __name__ == "__main__":
     start = len(metadata) * opt.rank // opt.world_size
     end = len(metadata) * (opt.rank + 1) // opt.world_size
     metadata = metadata[start:end]
+
+    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
+
     records = []
 
     if opt.instances is None:
@@ -139,16 +146,24 @@ if __name__ == "__main__":
 
     print(f"Rendering {len(metadata)} objects...")
 
-    # process objects
-    func = partial(
-        _render,
-        r=opt.radius,
-        output_dir=opt.output_dir,
-        num_views=opt.num_views,
-        render_frames=opt.render_frames,
-    )
-    rendered = dataset_utils.foreach_instance(
-        metadata, opt.output_dir, func, max_workers=opt.max_workers, desc="Rendering objects"
-    )
-    rendered = pd.concat([rendered, pd.DataFrame.from_records(records)])
-    rendered.to_csv(os.path.join(opt.output_dir, f"rendered_{opt.rank}.csv"), index=False)
+    # Process objects with a simple for-loop on the assigned GPU
+    metadata = metadata.to_dict("records")
+    for metadatum in tqdm(
+        metadata,
+        desc=f"GPU {opt.gpu_idx}",
+        position=int(opt.gpu_idx),
+        leave=True,
+    ):
+        file_path = os.path.join(opt.output_dir, metadatum["local_path"])
+        record = _render(
+            file_path,
+            metadatum["sha256"],
+            opt.output_dir,
+            opt.radius,
+            opt.num_views,
+        )
+        if record is not None:
+            records.append(record)
+
+    rendered_df = pd.DataFrame.from_records(records)
+    rendered_df.to_csv(os.path.join(opt.output_dir, f"rendered_{opt.rank}_{opt.gpu_idx}.csv"), index=False)
