@@ -30,7 +30,7 @@ def _install_blender():
         )
 
 
-def _render(file_path, sha256, output_dir, r=2, num_views=150):
+def _render(file_path, sha256, output_dir, r=1.3, num_views=100, render_frames=True):
     output_folder = os.path.join(output_dir, "renders", sha256)
 
     # Build camera {yaw, pitch, radius, fov}
@@ -63,6 +63,8 @@ def _render(file_path, sha256, output_dir, r=2, num_views=150):
         "CYCLES",
         "--save_mesh",
     ]
+    if render_frames:
+        args.append("--render_frames")
     if file_path.endswith(".blend"):
         args.insert(1, file_path)
 
@@ -87,8 +89,9 @@ if __name__ == "__main__":
         help="Filter objects with aesthetic score lower than this value",
     )
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
-    parser.add_argument("--num_views", type=int, default=150, help="Number of views to render")
-    parser.add_argument("--radius", type=float, default=2, help="Radius of the camera")
+    parser.add_argument("--num_views", type=int, default=100, help="Number of views to render")
+    parser.add_argument("--radius", type=float, default=1.3, help="Radius of the camera")
+    parser.add_argument("--render_frames", type=bool, default=True, help="Render frames")
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
@@ -106,6 +109,12 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(opt.output_dir, "metadata.csv")):
         raise ValueError("metadata.csv not found")
     metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"))
+
+    start = len(metadata) * opt.rank // opt.world_size
+    end = len(metadata) * (opt.rank + 1) // opt.world_size
+    metadata = metadata[start:end]
+    records = []
+
     if opt.instances is None:
         metadata = metadata[metadata["local_path"].notna()]
         if opt.filter_low_aesthetic_score is not None:
@@ -120,11 +129,6 @@ if __name__ == "__main__":
             instances = opt.instances.split(",")
         metadata = metadata[metadata["sha256"].isin(instances)]
 
-    start = len(metadata) * opt.rank // opt.world_size
-    end = len(metadata) * (opt.rank + 1) // opt.world_size
-    metadata = metadata[start:end]
-    records = []
-
     # filter out objects that are already processed
     for sha256 in copy.copy(metadata["sha256"].values):
         json_path = os.path.join(opt.output_dir, "renders", sha256, "transforms.json")
@@ -133,10 +137,16 @@ if __name__ == "__main__":
             records.append({"sha256": sha256, "rendered": True})
             metadata = metadata[metadata["sha256"] != sha256]
 
-    print(f"Processing {len(metadata)} objects...")
+    print(f"Rendering {len(metadata)} objects...")
 
     # process objects
-    func = partial(_render, r=opt.radius, output_dir=opt.output_dir, num_views=opt.num_views)
+    func = partial(
+        _render,
+        r=opt.radius,
+        output_dir=opt.output_dir,
+        num_views=opt.num_views,
+        render_frames=opt.render_frames,
+    )
     rendered = dataset_utils.foreach_instance(
         metadata, opt.output_dir, func, max_workers=opt.max_workers, desc="Rendering objects"
     )

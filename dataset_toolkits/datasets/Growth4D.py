@@ -15,10 +15,12 @@ GROWTH_4D_DATA_ROOT = "/svl/u/yuegao/4DStateMachine/growth_4d_scenes"
 
 
 def add_args(parser: argparse.ArgumentParser):
-    pass
+    parser.add_argument(
+        "--split", type=str, default="train", help="Data split"
+    )
 
 
-def get_metadata(split="train", **kwargs):
+def get_metadata(split, **kwargs):
     metadata_path = os.path.join(GROWTH_4D_DATA_ROOT, f"growth_4d_data_{split}.csv")
     print(f"Loading metadata from {metadata_path}")
     metadata = pd.read_csv(metadata_path)

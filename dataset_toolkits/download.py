@@ -3,10 +3,12 @@ import copy
 import importlib
 import os
 import sys
+import warnings
 
 import pandas as pd
 
 from easydict import EasyDict as edict
+from pandas.errors import DtypeWarning
 
 
 if __name__ == "__main__":
@@ -33,6 +35,13 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(opt.output_dir, "metadata.csv")):
         raise ValueError("metadata.csv not found")
     metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"))
+
+    start = len(metadata) * opt.rank // opt.world_size
+    end = len(metadata) * (opt.rank + 1) // opt.world_size
+    metadata = metadata[start:end]
+
+    print(f"Cur job processing {len(metadata)} objects...")
+
     if opt.instances is None:
         if opt.filter_low_aesthetic_score is not None:
             metadata = metadata[metadata["aesthetic_score"] >= opt.filter_low_aesthetic_score]
@@ -46,11 +55,7 @@ if __name__ == "__main__":
             instances = opt.instances.split(",")
         metadata = metadata[metadata["sha256"].isin(instances)]
 
-    start = len(metadata) * opt.rank // opt.world_size
-    end = len(metadata) * (opt.rank + 1) // opt.world_size
-    metadata = metadata[start:end]
-
-    print(f"Processing {len(metadata)} objects...")
+    print(f"Downloading {len(metadata)} filtered objects...")
 
     # process objects
     downloaded = dataset_utils.download(metadata, **opt)

@@ -15,10 +15,10 @@ FLORA_4D_DATA_ROOT = "/svl/u/yuegao/4DStateMachine/growth_4d_scenes"
 
 
 def add_args(parser: argparse.ArgumentParser):
-    pass
+    parser.add_argument("--split", type=str, default="train", help="Data split")
 
 
-def get_metadata(split="test", **kwargs):
+def get_metadata(split, **kwargs):
     meta_file_name = f"growth_4d_data_florasimple_{split}.csv"
     metadata_path = os.path.join(FLORA_4D_DATA_ROOT, meta_file_name)
     assert os.path.exists(metadata_path), f"Metadata file {metadata_path} does not exist"

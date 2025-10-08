@@ -61,19 +61,6 @@ def init_render(engine="BLENDER_EEVEE", resolution=512, geo_mode=False):
         bpy.context.scene.eevee.gi_diffuse_bounces = 0
 
 
-# def init_render(engine="BLENDER_EEVEE", resolution=512, geo_mode=False):
-#     bpy.context.scene.render.engine = "BLENDER_EEVEE"
-#     bpy.context.scene.render.resolution_x = resolution
-#     bpy.context.scene.render.resolution_y = resolution
-#     bpy.context.scene.render.resolution_percentage = 100
-#     bpy.context.scene.render.image_settings.file_format = "PNG"
-#     bpy.context.scene.render.image_settings.color_mode = "RGBA"
-#     bpy.context.scene.render.film_transparent = True
-
-#     bpy.context.scene.eevee.taa_render_samples = 4
-#     bpy.context.scene.eevee.gi_diffuse_bounces = 0
-
-
 def init_nodes(save_depth=False, save_normal=False, save_albedo=False, save_mist=False):
     if not any([save_depth, save_normal, save_albedo, save_mist]):
         return {}, {}
@@ -415,18 +402,15 @@ def normalize_scene() -> Tuple[float, Vector]:
         scene = scene_root_objects[0]
 
     bbox_min, bbox_max = scene_bbox()
-    # print(f"Bbox min: {bbox_min}, bbox max: {bbox_max}")
     scale = 1 / max(bbox_max - bbox_min)
     scene.scale = scene.scale * scale
 
     # Apply scale to matrix_world.
     bpy.context.view_layer.update()
     bbox_min, bbox_max = scene_bbox()
-    # print(f"Bbox min: {bbox_min}, bbox max: {bbox_max}")
     offset = -(bbox_min + bbox_max) / 2
     scene.matrix_world.translation += offset
     bpy.ops.object.select_all(action="DESELECT")
-    offset = Vector((0, 0, 0))
     return scale, offset
 
 
@@ -496,10 +480,10 @@ def main(arg):
     print("[INFO] Scene initialized.")
 
     # normalize scene
-    # scale, offset = normalize_scene()
-    # print("[INFO] Scene normalized.")
-    scale, offset = scale_scene(1.0)
-    print("[INFO] Scene scaled.")
+    scale, offset = normalize_scene()
+    print("[INFO] Scene normalized.")
+    # scale, offset = scale_scene(1.0)
+    # print("[INFO] Scene scaled.")
     print(f"{arg.object} | Scale: {scale}, Offset: {offset}")
 
     # Initialize camera and lighting
@@ -539,7 +523,8 @@ def main(arg):
                 output.file_slots[0].path = os.path.join(arg.output_folder, f"{i:03d}_{name}")
 
             # Render the scene
-            # bpy.ops.render.render(write_still=True)
+            if arg.render_frames:
+                bpy.ops.render.render(write_still=True)
             bpy.context.view_layer.update()
             for name, output in outputs.items():
                 ext = EXT[output.format.file_format]
@@ -559,9 +544,10 @@ def main(arg):
                 }
             to_export["frames"].append(metadata)
 
-        # # Save the camera parameters
-        # with open(json_file, "w") as f:
-        #     json.dump(to_export, f, indent=4)
+        # Save the camera parameters
+        if arg.render_frames:
+            with open(json_file, "w") as f:
+                json.dump(to_export, f, indent=4)
 
     if arg.save_mesh:
         mesh_file_path = os.path.join(arg.output_folder, "mesh.ply")
@@ -597,6 +583,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_mist", action="store_true", help="Save the mist distance maps.")
     parser.add_argument("--split_normal", action="store_true", help="Split the normals of the mesh.")
     parser.add_argument("--save_mesh", action="store_true", help="Save the mesh as a .ply file.")
+    parser.add_argument("--render_frames", action="store_true", help="Render the frames.")
     parser.add_argument("--scene_scale", type=float, default=1.0, help="Scene scaler for rendering.")
     # For regrowth, we use 1.5 as the scene scale. and turn off normalize_scene
     argv = sys.argv[sys.argv.index("--") + 1 :]
