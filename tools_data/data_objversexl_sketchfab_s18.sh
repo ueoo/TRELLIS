@@ -16,13 +16,6 @@ data_dir=$dataset_root/${data_name}_${data_source}
 rank=5
 world_size=10
 
-
-# python dataset_toolkits/build_metadata.py $data_name --source $data_source --output_dir $data_dir
-
-# python dataset_toolkits/download.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size
-
-# python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
-
 #### auto-detect GPUs and pass gpu_num
 available_gpus=$(python -c 'import torch; print(torch.cuda.device_count())' 2>/dev/null)
 if [ -z "$available_gpus" ] || [ "$available_gpus" -le 0 ]; then
@@ -30,6 +23,13 @@ if [ -z "$available_gpus" ] || [ "$available_gpus" -le 0 ]; then
 fi
 process_per_gpu=1
 gpu_num=$((available_gpus * process_per_gpu))
+
+# python dataset_toolkits/build_metadata.py $data_name --source $data_source --output_dir $data_dir
+
+# python dataset_toolkits/download.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size
+
+# python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
+
 python dataset_toolkits/render_mp.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
