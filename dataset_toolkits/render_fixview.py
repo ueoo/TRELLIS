@@ -172,4 +172,4 @@ if __name__ == "__main__":
             records.append(record)
 
     rendered_df = pd.DataFrame.from_records(records)
-    rendered_df.to_csv(os.path.join(opt.output_dir, f"rendered_fixview_{opt.rank}_{opt.gpu_idx}.csv"), index=False)
+    rendered_df.to_csv(os.path.join(opt.output_dir, f"fixview_rendered_{opt.rank}_{opt.gpu_idx}.csv"), index=False)

@@ -30,13 +30,15 @@ gpu_num=$((available_gpus * process_per_gpu))
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
-python dataset_toolkits/render_mp.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num
+# python dataset_toolkits/render_mp.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
+
+# python dataset_toolkits/render_fixview_mp.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num
 
 # python dataset_toolkits/render_cond.py $data_name --output_dir $data_dir
 
-# python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
+python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
 # python dataset_toolkits/voxelize.py $data_name --output_dir $data_dir
 

@@ -173,5 +173,5 @@ if __name__ == "__main__":
     except:
         print("Error happened during processing.")
 
-    records = pd.DataFrame.from_records(records)
-    records.to_csv(os.path.join(opt.output_dir, f"latent_{latent_name}_{opt.rank}.csv"), index=False)
+    # records = pd.DataFrame.from_records(records)
+    # records.to_csv(os.path.join(opt.output_dir, f"latent_{latent_name}_{opt.rank}.csv"), index=False)

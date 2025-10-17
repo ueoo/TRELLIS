@@ -112,6 +112,12 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(opt.output_dir, "metadata.csv")):
         raise ValueError("metadata.csv not found")
     metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"))
+
+    start = len(metadata) * opt.rank // opt.world_size
+    end = len(metadata) * (opt.rank + 1) // opt.world_size
+    metadata = metadata[start:end]
+    records = []
+
     if opt.instances is None:
         metadata = metadata[metadata["local_path"].notna()]
         if opt.filter_low_aesthetic_score is not None:
@@ -125,11 +131,6 @@ if __name__ == "__main__":
         else:
             instances = opt.instances.split(",")
         metadata = metadata[metadata["sha256"].isin(instances)]
-
-    start = len(metadata) * opt.rank // opt.world_size
-    end = len(metadata) * (opt.rank + 1) // opt.world_size
-    metadata = metadata[start:end]
-    records = []
 
     # filter out objects that are already processed
     for sha256 in copy.copy(metadata["sha256"].values):
@@ -145,4 +146,4 @@ if __name__ == "__main__":
         metadata, opt.output_dir, func, max_workers=opt.max_workers, desc="Rendering objects"
     )
     cond_rendered = pd.concat([cond_rendered, pd.DataFrame.from_records(records)])
-    cond_rendered.to_csv(os.path.join(opt.output_dir, f"cond_rendered_test_{opt.rank}.csv"), index=False)
+    cond_rendered.to_csv(os.path.join(opt.output_dir, f"test_cond_rendered_{opt.rank}.csv"), index=False)

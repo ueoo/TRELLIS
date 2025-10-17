@@ -4,9 +4,6 @@ import json
 import os
 import sys
 
-from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
-
 import numpy as np
 import pandas as pd
 import torch
@@ -51,8 +48,14 @@ if __name__ == "__main__":
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
+    parser.add_argument("--gpu_idx", type=int, default=0)
+    parser.add_argument("--gpu_num", type=int, default=8)
     opt = parser.parse_args()
     opt = edict(vars(opt))
+
+    # Pin this process to a single GPU so compute stays on the intended device
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(opt.gpu_idx)
 
     if opt.enc_model is None:
         latent_name = f'{opt.feat_model}_{opt.enc_pretrained.split("/")[-1]}'
@@ -73,6 +76,14 @@ if __name__ == "__main__":
         metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"))
     else:
         raise ValueError("metadata.csv not found")
+
+    start = len(metadata) * opt.rank // opt.world_size
+    end = len(metadata) * (opt.rank + 1) // opt.world_size
+    metadata = metadata[start:end]
+    # Further shard by GPU index for data-parallel launch
+    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
+    records = []
+
     if opt.instances is not None:
         with open(opt.instances, "r") as f:
             sha256s = [line.strip() for line in f]
@@ -84,11 +95,6 @@ if __name__ == "__main__":
         if f"latent_{latent_name}" in metadata.columns:
             metadata = metadata[metadata[f"latent_{latent_name}"] == False]
 
-    start = len(metadata) * opt.rank // opt.world_size
-    end = len(metadata) * (opt.rank + 1) // opt.world_size
-    metadata = metadata[start:end]
-    records = []
-
     # filter out objects that are already processed
     sha256s = list(metadata["sha256"].values)
     for sha256 in copy.copy(sha256s):
@@ -96,50 +102,31 @@ if __name__ == "__main__":
             records.append({"sha256": sha256, f"latent_{latent_name}": True})
             sha256s.remove(sha256)
 
-    # encode latents
-    load_queue = Queue(maxsize=4)
-    try:
-        with ThreadPoolExecutor(max_workers=32) as loader_executor, ThreadPoolExecutor(
-            max_workers=32
-        ) as saver_executor:
-
-            def loader(sha256):
-                try:
-                    feats = np.load(os.path.join(opt.output_dir, "features", opt.feat_model, f"{sha256}.npz"))
-                    load_queue.put((sha256, feats))
-                except Exception as e:
-                    print(f"Error loading features for {sha256}: {e}")
-
-            loader_executor.map(loader, sha256s)
-
-            def saver(sha256, pack):
-                save_path = os.path.join(opt.output_dir, "latents", latent_name, f"{sha256}.npz")
-                np.savez_compressed(save_path, **pack)
-                records.append({"sha256": sha256, f"latent_{latent_name}": True})
-
-            for _ in tqdm(range(len(sha256s)), desc="Extracting latents"):
-                sha256, feats = load_queue.get()
-                feats = sp.SparseTensor(
-                    feats=torch.from_numpy(feats["patchtokens"]).float(),
-                    coords=torch.cat(
-                        [
-                            torch.zeros(feats["patchtokens"].shape[0], 1).int(),
-                            torch.from_numpy(feats["indices"]).int(),
-                        ],
-                        dim=1,
-                    ),
-                ).cuda()
-                latent = encoder(feats, sample_posterior=False)
-                assert torch.isfinite(latent.feats).all(), "Non-finite latent"
-                pack = {
-                    "feats": latent.feats.cpu().numpy().astype(np.float32),
-                    "coords": latent.coords[:, 1:].cpu().numpy().astype(np.uint8),
-                }
-                saver_executor.submit(saver, sha256, pack)
-
-            saver_executor.shutdown(wait=True)
-    except:
-        print("Error happened during processing.")
+    # encode latents sequentially per GPU index
+    for sha256 in tqdm(sha256s, desc=f"GPU {opt.gpu_idx} - Extracting latents"):
+        try:
+            feats_np = np.load(os.path.join(opt.output_dir, "features", opt.feat_model, f"{sha256}.npz"))
+            sparse_feats = sp.SparseTensor(
+                feats=torch.from_numpy(feats_np["patchtokens"]).float(),
+                coords=torch.cat(
+                    [
+                        torch.zeros(feats_np["patchtokens"].shape[0], 1).int(),
+                        torch.from_numpy(feats_np["indices"]).int(),
+                    ],
+                    dim=1,
+                ),
+            ).cuda()
+            latent = encoder(sparse_feats, sample_posterior=False)
+            assert torch.isfinite(latent.feats).all(), "Non-finite latent"
+            pack = {
+                "feats": latent.feats.cpu().numpy().astype(np.float32),
+                "coords": latent.coords[:, 1:].cpu().numpy().astype(np.uint8),
+            }
+            save_path = os.path.join(opt.output_dir, "latents", latent_name, f"{sha256}.npz")
+            np.savez_compressed(save_path, **pack)
+            records.append({"sha256": sha256, f"latent_{latent_name}": True})
+        except Exception as e:
+            print(f"Error processing {sha256}: {e}")
 
     records = pd.DataFrame.from_records(records)
-    records.to_csv(os.path.join(opt.output_dir, f"latent_{latent_name}_{opt.rank}.csv"), index=False)
+    records.to_csv(os.path.join(opt.output_dir, f"latent_{latent_name}_{opt.rank}_{opt.gpu_idx}.csv"), index=False)

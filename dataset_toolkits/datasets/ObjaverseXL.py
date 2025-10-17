@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import objaverse.xl as oxl
 import pandas as pd
 
+from p_tqdm import p_umap
 from tqdm import tqdm
 from utils import get_file_hash
 
@@ -67,35 +68,59 @@ def foreach_instance(metadata, output_dir, func, max_workers=None, desc="Process
     # processing objects
     records = []
     max_workers = max_workers or os.cpu_count()
-    try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor, tqdm(total=len(metadata), desc=desc) as pbar:
 
-            def worker(metadatum):
-                try:
-                    local_path = metadatum["local_path"]
-                    sha256 = metadatum["sha256"]
-                    if local_path.startswith("raw/github/repos/"):
-                        path_parts = local_path.split("/")
-                        file_name = os.path.join(*path_parts[5:])
-                        zip_file = os.path.join(output_dir, *path_parts[:5])
-                        with tempfile.TemporaryDirectory() as tmp_dir:
-                            with zipfile.ZipFile(zip_file, "r") as zip_ref:
-                                zip_ref.extractall(tmp_dir)
-                            file = os.path.join(tmp_dir, file_name)
-                            record = func(file, sha256)
-                    else:
-                        file = os.path.join(output_dir, local_path)
-                        record = func(file, sha256)
-                    if record is not None:
-                        records.append(record)
-                    pbar.update()
-                except Exception as e:
-                    print(f"Error processing object {sha256}: {e}")
-                    pbar.update()
+    def worker(metadatum):
+        try:
+            local_path = metadatum["local_path"]
+            sha256 = metadatum["sha256"]
+            if local_path.startswith("raw/github/repos/"):
+                path_parts = local_path.split("/")
+                file_name = os.path.join(*path_parts[5:])
+                zip_file = os.path.join(output_dir, *path_parts[:5])
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    with zipfile.ZipFile(zip_file, "r") as zip_ref:
+                        zip_ref.extractall(tmp_dir)
+                    file = os.path.join(tmp_dir, file_name)
+                    record = func(file, sha256)
+            else:
+                file = os.path.join(output_dir, local_path)
+                record = func(file, sha256)
+            if record is not None:
+                records.append(record)
+        except Exception as e:
+            print(f"Error processing object {sha256}: {e}")
 
-            executor.map(worker, metadata)
-            executor.shutdown(wait=True)
-    except:
-        print("Error happened during processing.")
+    p_umap(worker, metadata, desc=desc, num_cpus=max_workers)
+
+    # try:
+    #     with ThreadPoolExecutor(max_workers=max_workers) as executor, tqdm(total=len(metadata), desc=desc) as pbar:
+
+    #         def worker(metadatum):
+    #             try:
+    #                 local_path = metadatum["local_path"]
+    #                 sha256 = metadatum["sha256"]
+    #                 if local_path.startswith("raw/github/repos/"):
+    #                     path_parts = local_path.split("/")
+    #                     file_name = os.path.join(*path_parts[5:])
+    #                     zip_file = os.path.join(output_dir, *path_parts[:5])
+    #                     with tempfile.TemporaryDirectory() as tmp_dir:
+    #                         with zipfile.ZipFile(zip_file, "r") as zip_ref:
+    #                             zip_ref.extractall(tmp_dir)
+    #                         file = os.path.join(tmp_dir, file_name)
+    #                         record = func(file, sha256)
+    #                 else:
+    #                     file = os.path.join(output_dir, local_path)
+    #                     record = func(file, sha256)
+    #                 if record is not None:
+    #                     records.append(record)
+    #                 pbar.update()
+    #             except Exception as e:
+    #                 print(f"Error processing object {sha256}: {e}")
+    #                 pbar.update()
+
+    #         executor.map(worker, metadata)
+    #         executor.shutdown(wait=True)
+    # except:
+    #     print("Error happened during processing.")
 
     return pd.DataFrame.from_records(records)

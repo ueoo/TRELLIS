@@ -14,6 +14,8 @@ import utils3d
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
+from p_tqdm import p_umap
+
 
 def get_first_directory(path):
     with os.scandir(path) as it:
@@ -104,6 +106,8 @@ if __name__ == "__main__":
         metadata["voxelized"] = [False] * len(metadata)
     if "num_voxels" not in metadata.columns:
         metadata["num_voxels"] = [0] * len(metadata)
+    if "fixview_rendered" not in metadata.columns:
+        metadata["fixview_rendered"] = [False] * len(metadata)
     if "cond_rendered" not in metadata.columns:
         metadata["cond_rendered"] = [False] * len(metadata)
     if "cond_rendered_test" not in metadata.columns:
@@ -147,88 +151,85 @@ if __name__ == "__main__":
 
     # build metadata from files
     if opt.from_file:
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor, tqdm(
-            total=len(metadata), desc="Building metadata"
-        ) as pbar:
-
-            def worker(sha256):
+        def worker(sha256):
+            if (
+                need_process("rendered")
+                and metadata.loc[sha256, "rendered"] == False
+                and os.path.exists(os.path.join(opt.output_dir, "renders", sha256, "transforms.json"))
+                and os.path.exists(os.path.join(opt.output_dir, "renders", sha256, "mesh.ply"))
+            ):
+                metadata.loc[sha256, "rendered"] = True
+            if (
+                need_process("voxelized")
+                and metadata.loc[sha256, "rendered"] == True
+                and metadata.loc[sha256, "voxelized"] == False
+                and os.path.exists(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply"))
+            ):
                 try:
-                    if (
-                        need_process("rendered")
-                        and metadata.loc[sha256, "rendered"] == False
-                        and os.path.exists(os.path.join(opt.output_dir, "renders", sha256, "transforms.json"))
-                        and os.path.exists(os.path.join(opt.output_dir, "renders", sha256, "mesh.ply"))
-                    ):
-                        metadata.loc[sha256, "rendered"] = True
-                    if (
-                        need_process("voxelized")
-                        and metadata.loc[sha256, "rendered"] == True
-                        and metadata.loc[sha256, "voxelized"] == False
-                        and os.path.exists(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply"))
-                    ):
-                        try:
-                            pts = utils3d.io.read_ply(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply"))[0]
-                            metadata.loc[sha256, "voxelized"] = True
-                            metadata.loc[sha256, "num_voxels"] = len(pts)
-                        except Exception as e:
-                            pass
-
-                    if (
-                        need_process("fixview_rendered")
-                        and metadata.loc[sha256, "fixview_rendered"] == False
-                        and os.path.exists(os.path.join(opt.output_dir, "renders_fixview", sha256, "transforms.json"))
-                    ):
-                        metadata.loc[sha256, "fixview_rendered"] = True
-
-                    if (
-                        need_process("cond_rendered")
-                        and metadata.loc[sha256, "cond_rendered"] == False
-                        and os.path.exists(os.path.join(opt.output_dir, "renders_cond", sha256, "transforms.json"))
-                    ):
-                        metadata.loc[sha256, "cond_rendered"] = True
-
-                    if (
-                        need_process("cond_rendered_test")
-                        and metadata.loc[sha256, "cond_rendered_test"] == False
-                        and os.path.exists(
-                            os.path.join(opt.output_dir, "renders_cond_test", sha256, "transforms.json")
-                        )
-                    ):
-                        metadata.loc[sha256, "cond_rendered_test"] = True
-
-                    for model in image_models:
-                        if (
-                            need_process(f"feature_{model}")
-                            and metadata.loc[sha256, f"feature_{model}"] == False
-                            and metadata.loc[sha256, "rendered"] == True
-                            and metadata.loc[sha256, "voxelized"] == True
-                            and os.path.exists(os.path.join(opt.output_dir, "features", model, f"{sha256}.npz"))
-                        ):
-                            metadata.loc[sha256, f"feature_{model}"] = True
-                    for model in latent_models:
-                        if (
-                            need_process(f"latent_{model}")
-                            and metadata.loc[sha256, f"latent_{model}"] == False
-                            and metadata.loc[sha256, "rendered"] == True
-                            and metadata.loc[sha256, "voxelized"] == True
-                            and os.path.exists(os.path.join(opt.output_dir, "latents", model, f"{sha256}.npz"))
-                        ):
-                            metadata.loc[sha256, f"latent_{model}"] = True
-                    for model in ss_latent_models:
-                        if (
-                            need_process(f"ss_latent_{model}")
-                            and metadata.loc[sha256, f"ss_latent_{model}"] == False
-                            and metadata.loc[sha256, "voxelized"] == True
-                            and os.path.exists(os.path.join(opt.output_dir, "ss_latents", model, f"{sha256}.npz"))
-                        ):
-                            metadata.loc[sha256, f"ss_latent_{model}"] = True
-                    pbar.update()
+                    pts = utils3d.io.read_ply(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply"))[0]
+                    metadata.loc[sha256, "voxelized"] = True
+                    metadata.loc[sha256, "num_voxels"] = len(pts)
                 except Exception as e:
-                    print(f"Error processing {sha256}: {e}")
-                    pbar.update()
+                    pass
 
-            executor.map(worker, metadata.index)
-            executor.shutdown(wait=True)
+            if (
+                need_process("fixview_rendered")
+                and metadata.loc[sha256, "fixview_rendered"] == False
+                and os.path.exists(os.path.join(opt.output_dir, "renders_fixview", sha256, "transforms.json"))
+            ):
+                metadata.loc[sha256, "fixview_rendered"] = True
+
+            if (
+                need_process("cond_rendered")
+                and metadata.loc[sha256, "cond_rendered"] == False
+                and os.path.exists(os.path.join(opt.output_dir, "renders_cond", sha256, "transforms.json"))
+            ):
+                metadata.loc[sha256, "cond_rendered"] = True
+
+            if (
+                need_process("cond_rendered_test")
+                and metadata.loc[sha256, "cond_rendered_test"] == False
+                and os.path.exists(
+                    os.path.join(opt.output_dir, "renders_cond_test", sha256, "transforms.json")
+                )
+            ):
+                metadata.loc[sha256, "cond_rendered_test"] = True
+
+            for model in image_models:
+                if (
+                    need_process(f"feature_{model}")
+                    and metadata.loc[sha256, f"feature_{model}"] == False
+                    and metadata.loc[sha256, "rendered"] == True
+                    and metadata.loc[sha256, "voxelized"] == True
+                    and os.path.exists(os.path.join(opt.output_dir, "features", model, f"{sha256}.npz"))
+                ):
+                    metadata.loc[sha256, f"feature_{model}"] = True
+            for model in latent_models:
+                if (
+                    need_process(f"latent_{model}")
+                    and metadata.loc[sha256, f"latent_{model}"] == False
+                    and metadata.loc[sha256, "rendered"] == True
+                    and metadata.loc[sha256, "voxelized"] == True
+                    and os.path.exists(os.path.join(opt.output_dir, "latents", model, f"{sha256}.npz"))
+                ):
+                    metadata.loc[sha256, f"latent_{model}"] = True
+            for model in ss_latent_models:
+                if (
+                    need_process(f"ss_latent_{model}")
+                    and metadata.loc[sha256, f"ss_latent_{model}"] == False
+                    and metadata.loc[sha256, "voxelized"] == True
+                    and os.path.exists(os.path.join(opt.output_dir, "ss_latents", model, f"{sha256}.npz"))
+                ):
+                    metadata.loc[sha256, f"ss_latent_{model}"] = True
+        p_umap(worker, metadata.index, desc="Building metadata", num_cpus=os.cpu_count())
+
+        #         pbar.update()
+        #     except Exception as e:
+        #         print(f"Error processing {sha256}: {e}")
+        #         pbar.update()
+
+        # executor.map(worker, metadata.index)
+        # executor.shutdown(wait=True)
 
     # statistics
     metadata.to_csv(os.path.join(opt.output_dir, "metadata.csv"))
@@ -252,6 +253,7 @@ if __name__ == "__main__":
             for model in ss_latent_models:
                 f.write(f'    - {model}: {metadata[f"ss_latent_{model}"].sum()}\n')
         f.write(f'  - Number of assets with captions: {metadata["captions"].count()}\n')
+        f.write(f'  - Number of assets with fixview rendered: {metadata["fixview_rendered"].sum()}\n')
         f.write(f'  - Number of assets with image conditions: {metadata["cond_rendered"].sum()}\n')
         f.write(f'  - Number of assets with test image conditions: {metadata["cond_rendered_test"].sum()}\n')
 
