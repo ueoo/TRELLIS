@@ -80,8 +80,7 @@ if __name__ == "__main__":
     start = len(metadata) * opt.rank // opt.world_size
     end = len(metadata) * (opt.rank + 1) // opt.world_size
     metadata = metadata[start:end]
-    # Further shard by GPU index for data-parallel launch
-    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
+
     records = []
 
     if opt.instances is not None:
@@ -102,8 +101,15 @@ if __name__ == "__main__":
             records.append({"sha256": sha256, f"latent_{latent_name}": True})
             sha256s.remove(sha256)
 
+    # Further shard by GPU index for data-parallel launch
+    sha256s = sha256s[(opt.gpu_idx % opt.gpu_num) :: opt.gpu_num]
     # encode latents sequentially per GPU index
-    for sha256 in tqdm(sha256s, desc=f"GPU {opt.gpu_idx} - Extracting latents"):
+    for sha256 in tqdm(
+        sha256s,
+        desc=f"GPU {opt.gpu_idx} - Extracting latents",
+        position=int(opt.gpu_idx),
+        leave=True,
+    ):
         try:
             feats_np = np.load(os.path.join(opt.output_dir, "features", opt.feat_model, f"{sha256}.npz"))
             sparse_feats = sp.SparseTensor(

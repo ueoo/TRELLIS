@@ -15,7 +15,15 @@ from easydict import EasyDict as edict
 
 
 def _voxelize(file, sha256, output_dir):
-    mesh = o3d.io.read_triangle_mesh(os.path.join(output_dir, "renders", sha256, "mesh.ply"))
+    mesh_path = os.path.join(output_dir, "renders", sha256, "mesh.ply")
+    if not os.path.exists(mesh_path):
+        print(f"Mesh file not found for {sha256}")
+        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
+    try:
+        mesh = o3d.io.read_triangle_mesh(mesh_path)
+    except Exception as e:
+        print(f"Error reading mesh file for {sha256}: {e}")
+        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
     # clamp vertices to the range [-0.5, 0.5]
     vertices = np.clip(np.asarray(mesh.vertices), -0.5 + 1e-6, 0.5 - 1e-6)
     mesh.vertices = o3d.utility.Vector3dVector(vertices)
@@ -23,9 +31,15 @@ def _voxelize(file, sha256, output_dir):
         mesh, voxel_size=1 / 64, min_bound=(-0.5, -0.5, -0.5), max_bound=(0.5, 0.5, 0.5)
     )
     vertices = np.array([voxel.grid_index for voxel in voxel_grid.get_voxels()])
-    assert np.all(vertices >= 0) and np.all(vertices < 64), "Some vertices are out of bounds"
+    if np.any(vertices < 0) or np.any(vertices >= 64):
+        print(f"Some vertices are out of bounds for {sha256}")
+        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
     vertices = (vertices + 0.5) / 64 - 0.5
-    utils3d.io.write_ply(os.path.join(output_dir, "voxels", f"{sha256}.ply"), vertices)
+    out_path = os.path.join(output_dir, "voxels", f"{sha256}.ply")
+    utils3d.io.write_ply(out_path, vertices)
+    if not os.path.exists(out_path):
+        print(f"Failed to write voxelized mesh for {sha256}")
+        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
     return {"sha256": sha256, "voxelized": True, "num_voxels": len(vertices)}
 
 
@@ -41,7 +55,6 @@ if __name__ == "__main__":
         help="Filter objects with aesthetic score lower than this value",
     )
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
-    parser.add_argument("--num_views", type=int, default=150, help="Number of views to render")
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
@@ -79,8 +92,9 @@ if __name__ == "__main__":
 
     # filter out objects that are already processed
     for sha256 in copy.copy(metadata["sha256"].values):
-        if os.path.exists(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply")):
-            pts = utils3d.io.read_ply(os.path.join(opt.output_dir, "voxels", f"{sha256}.ply"))[0]
+        voxel_file_path = os.path.join(opt.output_dir, "voxels", f"{sha256}.ply")
+        if os.path.exists(voxel_file_path):
+            pts = utils3d.io.read_ply(voxel_file_path)[0]
             records.append({"sha256": sha256, "voxelized": True, "num_voxels": len(pts)})
             metadata = metadata[metadata["sha256"] != sha256]
 

@@ -25,30 +25,29 @@ torch.set_grad_enabled(False)
 
 
 def get_data(frames, sha256):
-    # with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=16) as executor:
 
-    def worker(view):
-        image_path = os.path.join(opt.output_dir, "renders", sha256, view["file_path"])
-        try:
-            image = Image.open(image_path)
-        except:
-            print(f"Error loading image {image_path}")
-            return None
-        image = image.resize((518, 518), Image.Resampling.LANCZOS)
-        image = np.array(image).astype(np.float32) / 255
-        image = image[:, :, :3] * image[:, :, 3:]
-        image = torch.from_numpy(image).permute(2, 0, 1).float()
+        def worker(view):
+            image_path = os.path.join(opt.output_dir, "renders", sha256, view["file_path"])
+            try:
+                image = Image.open(image_path)
+            except:
+                print(f"Error loading image {image_path}")
+                return None
+            image = image.resize((518, 518), Image.Resampling.LANCZOS)
+            image = np.array(image).astype(np.float32) / 255
+            image = image[:, :, :3] * image[:, :, 3:]
+            image = torch.from_numpy(image).permute(2, 0, 1).float()
 
-        c2w = torch.tensor(view["transform_matrix"])
-        c2w[:3, 1:3] *= -1
-        extrinsics = torch.inverse(c2w)
-        fov = view["camera_angle_x"]
-        intrinsics = utils3d.torch.intrinsics_from_fov_xy(torch.tensor(fov), torch.tensor(fov))
+            c2w = torch.tensor(view["transform_matrix"])
+            c2w[:3, 1:3] *= -1
+            extrinsics = torch.inverse(c2w)
+            fov = view["camera_angle_x"]
+            intrinsics = utils3d.torch.intrinsics_from_fov_xy(torch.tensor(fov), torch.tensor(fov))
 
-        return {"image": image, "extrinsics": extrinsics, "intrinsics": intrinsics}
+            return {"image": image, "extrinsics": extrinsics, "intrinsics": intrinsics}
 
-    # datas = executor.map(worker, frames)
-    datas = p_umap(worker, frames, num_cpus=16)
+        datas = executor.map(worker, frames)
     for data in datas:
         if data is not None:
             yield data
@@ -81,7 +80,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(opt.output_dir, "features", feature_name), exist_ok=True)
 
     # load model
-    dinov2_model = torch.hub.load("facebookresearch/dinov2", opt.model)
+    dinov2_model = torch.hub.load("facebookresearch/dinov2", opt.model, verbose=False)
     dinov2_model.eval().cuda()
     transform = transforms.Compose(
         [
@@ -100,8 +99,6 @@ if __name__ == "__main__":
     end = len(metadata) * (opt.rank + 1) // opt.world_size
     metadata = metadata[start:end]
 
-    # Further shard by GPU index for data-parallel launch
-    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
     records = []
 
     if opt.instances is not None:
@@ -119,12 +116,21 @@ if __name__ == "__main__":
     # filter out objects that are already processed
     sha256s = list(metadata["sha256"].values)
     for sha256 in copy.copy(sha256s):
-        if os.path.exists(os.path.join(opt.output_dir, "features", feature_name, f"{sha256}.npz")):
+        features_path = os.path.join(opt.output_dir, "features", feature_name, f"{sha256}.npz")
+        if os.path.exists(features_path):
             records.append({"sha256": sha256, f"feature_{feature_name}": True})
             sha256s.remove(sha256)
 
+    # Further shard by GPU index for data-parallel launch
+    sha256s = sha256s[(opt.gpu_idx % opt.gpu_num) :: opt.gpu_num]
+
     # extract features sequentially per GPU index
-    for sha256 in tqdm(sha256s, desc=f"GPU {opt.gpu_idx} - Extracting features"):
+    for sha256 in tqdm(
+        sha256s,
+        desc=f"GPU {opt.gpu_idx} - Extracting features",
+        position=int(opt.gpu_idx),
+        leave=True,
+    ):
         try:
             with open(os.path.join(opt.output_dir, "renders", sha256, "transforms.json"), "r") as f:
                 meta_json = json.load(f)

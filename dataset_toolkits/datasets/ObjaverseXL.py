@@ -91,6 +91,8 @@ def foreach_instance(metadata, output_dir, func, max_workers=None, desc="Process
             print(f"Error processing object {sha256}: {e}")
 
     p_umap(worker, metadata, desc=desc, num_cpus=max_workers)
+    # for metadatum in metadata:
+    #     worker(metadatum)
 
     # try:
     #     with ThreadPoolExecutor(max_workers=max_workers) as executor, tqdm(total=len(metadata), desc=desc) as pbar:

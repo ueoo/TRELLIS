@@ -88,8 +88,6 @@ if __name__ == "__main__":
     start = len(metadata) * opt.rank // opt.world_size
     end = len(metadata) * (opt.rank + 1) // opt.world_size
     metadata = metadata[start:end]
-    # Further shard by GPU index for data-parallel launch
-    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
     records = []
 
     if opt.instances is not None:
@@ -106,12 +104,21 @@ if __name__ == "__main__":
     # filter out objects that are already processed
     sha256s = list(metadata["sha256"].values)
     for sha256 in copy.copy(sha256s):
-        if os.path.exists(os.path.join(opt.output_dir, "ss_latents", latent_name, f"{sha256}.npz")):
+        ss_latent_path = os.path.join(opt.output_dir, "ss_latents", latent_name, f"{sha256}.npz")
+        if os.path.exists(ss_latent_path):
             records.append({"sha256": sha256, f"ss_latent_{latent_name}": True})
             sha256s.remove(sha256)
 
+    # Further shard by GPU index for data-parallel launch
+    sha256s = sha256s[(opt.gpu_idx % opt.gpu_num) :: opt.gpu_num]
+
     # encode latents sequentially per GPU index
-    for sha256 in tqdm(sha256s, desc=f"GPU {opt.gpu_idx} - Extracting ss latents"):
+    for sha256 in tqdm(
+        sha256s,
+        desc=f"GPU {opt.gpu_idx} - Extracting ss latents",
+        position=int(opt.gpu_idx),
+        leave=True,
+    ):
         try:
             ss = get_voxels(sha256)[None].float()
             ss = ss.cuda().float()

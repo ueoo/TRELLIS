@@ -12,9 +12,8 @@ import pandas as pd
 import utils3d
 
 from easydict import EasyDict as edict
-from tqdm import tqdm
-
 from p_tqdm import p_umap
+from tqdm import tqdm
 
 
 def get_first_directory(path):
@@ -38,13 +37,24 @@ def merge_csv_by_prefix(metadata, output_dir, filename_prefix, timestamp, downlo
         except:
             pass
     if len(df_parts) > 0:
-        df = pd.concat(df_parts)
-        df.set_index("sha256", inplace=True)
+        # Concatenate and ensure unique rows per sha256
+        df = pd.concat(df_parts, ignore_index=True)
+        if "sha256" in df.columns:
+            df = df.drop_duplicates(subset=["sha256"], keep="last")
+            df.set_index("sha256", inplace=True)
+        else:
+            # If sha256 is already the index, ensure uniqueness
+            if df.index.name == "sha256":
+                df = df[~df.index.duplicated(keep="last")]
+        # Final guard against duplicate index labels
+        if df.index.has_duplicates:
+            df = df[~df.index.duplicated(keep="last")]
         if downloaded_mode:
             if "local_path" in metadata.columns:
                 metadata.update(df, overwrite=True)
             else:
-                metadata = metadata.join(df, on="sha256", how="left")
+                # Join on index (both are indexed by sha256)
+                metadata = metadata.join(df, how="left")
         else:
             metadata.update(df, overwrite=True)
         for f in df_files:
@@ -81,7 +91,13 @@ if __name__ == "__main__":
         metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"), low_memory=False)
     else:
         metadata = dataset_utils.get_metadata(**opt)
-    metadata.set_index("sha256", inplace=True)
+    # Ensure no duplicate sha256 before indexing to avoid duplicate-label issues later
+    if "sha256" in metadata.columns:
+        metadata = metadata.drop_duplicates(subset=["sha256"], keep="last")
+        metadata.set_index("sha256", inplace=True)
+    else:
+        if metadata.index.name == "sha256":
+            metadata = metadata[~metadata.index.duplicated(keep="last")]
 
     # merge downloaded
     metadata = merge_csv_by_prefix(metadata, opt.output_dir, "downloaded_", timestamp, downloaded_mode=True)
@@ -189,9 +205,7 @@ if __name__ == "__main__":
             if (
                 need_process("cond_rendered_test")
                 and metadata.loc[sha256, "cond_rendered_test"] == False
-                and os.path.exists(
-                    os.path.join(opt.output_dir, "renders_cond_test", sha256, "transforms.json")
-                )
+                and os.path.exists(os.path.join(opt.output_dir, "renders_cond_test", sha256, "transforms.json"))
             ):
                 metadata.loc[sha256, "cond_rendered_test"] = True
 
@@ -221,6 +235,7 @@ if __name__ == "__main__":
                     and os.path.exists(os.path.join(opt.output_dir, "ss_latents", model, f"{sha256}.npz"))
                 ):
                     metadata.loc[sha256, f"ss_latent_{model}"] = True
+
         p_umap(worker, metadata.index, desc="Building metadata", num_cpus=os.cpu_count())
 
         #         pbar.update()

@@ -7,6 +7,10 @@ export TMP=$tmp_dir
 export TEMP=$tmp_dir
 
 
+
+GPU_IDS=1,2,3,4,5,6,7
+
+
 dataset_root=$scr_root/TRELLIS_datasets
 
 data_name=ObjaverseXL
@@ -36,27 +40,23 @@ gpu_num=$((available_gpus * process_per_gpu))
 
 # python dataset_toolkits/render_fixview_mp.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num
 
-# python dataset_toolkits/render_cond.py $data_name --output_dir $data_dir
+# python dataset_toolkits/render_cond.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size
 
-python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
+# python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
 # python dataset_toolkits/voxelize.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
-# python dataset_toolkits/extract_feature.py --output_dir $data_dir --rank $rank --world_size $world_size
+# python dataset_toolkits/extract_feature_mp.py --output_dir $data_dir --batch_size 2 --rank $rank --world_size $world_size --gpu_num $gpu_num --gpu_ids $GPU_IDS
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
-# python dataset_toolkits/encode_ss_latent.py --output_dir $data_dir --rank $rank --world_size $world_size
+# python dataset_toolkits/encode_ss_latent_mp.py --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num --gpu_ids $GPU_IDS
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
-# python dataset_toolkits/render_cond_test.py $data_name --output_dir $data_dir --rank $rank --world_size $world_size
-
-# python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
-
-# python dataset_toolkits/encode_latent.py --output_dir $data_dir --rank $rank --world_size $world_size
+python dataset_toolkits/encode_latent_mp.py --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num --gpu_ids $GPU_IDS
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
