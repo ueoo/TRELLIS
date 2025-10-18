@@ -15,7 +15,7 @@ dataset_root=$scr_root/TRELLIS_datasets
 
 data_name=ObjaverseXL
 data_source=sketchfab
-data_dir=$dataset_root/${data_name}_${data_source}
+data_dir=$dataset_root/${data_name}_${data_source}_v10
 
 rank=6
 world_size=10
@@ -56,7 +56,7 @@ gpu_num=$((available_gpus * process_per_gpu))
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
-python dataset_toolkits/encode_latent_mp.py --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num --gpu_ids $GPU_IDS
+# python dataset_toolkits/encode_latent_mp.py --output_dir $data_dir --rank $rank --world_size $world_size --gpu_num $gpu_num --gpu_ids $GPU_IDS
 
 # python dataset_toolkits/build_metadata.py $data_name --output_dir $data_dir
 
