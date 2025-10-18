@@ -14,6 +14,7 @@ from ..utils.render_utils import get_renderer
 from .components import (
     ImageAllConditionedMixin,
     ImageConditionedMixin,
+    MultiImageConditionedMixin,
     PrevImageCondConditionedMixin,
     PrevImageConditionedMixin,
     SLatConditionedMixin,
@@ -273,6 +274,14 @@ class ImageConditionedSLat(ImageConditionedMixin, SLat):
 class ImageAllConditionedSLat(ImageAllConditionedMixin, SLat):
     """
     Image-all-conditioned structured latent dataset
+    """
+
+    pass
+
+
+class MultiImageConditionedSLat(MultiImageConditionedMixin, SLat):
+    """
+    Multi-image-conditioned structured latent dataset
     """
 
     pass

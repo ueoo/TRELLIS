@@ -24,6 +24,7 @@
         "name": "MultiImageConditionedSLat",
         "args": {
             "latent_model": "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16",
+            "view_count": 3,
             "min_aesthetic_score": 4.5,
             "max_num_voxels": 32768,
             "image_size": 518,
@@ -53,10 +54,11 @@
         }
     },
     "trainer": {
-        "name": "ImageConditionedSparseFlowMatchingCFGTrainer",
+        "name": "MultiImageConditionedSparseFlowMatchingCFGTrainer",
         "args": {
-            "max_steps": 100000,
-            "batch_size_per_gpu": 4,
+            "view_count": 3,
+            "max_steps": 1000000,
+            "batch_size_per_gpu": 2,
             "batch_split": 2,
             "num_workers": 8,
             "optimizer": {

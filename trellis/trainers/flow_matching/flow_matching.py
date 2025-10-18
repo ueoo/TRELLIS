@@ -14,8 +14,11 @@ from ...utils.general_utils import dict_reduce
 from ..basic import BasicTrainer
 from .mixins.classifier_free_guidance import ClassifierFreeGuidanceMixin
 from .mixins.image_conditioned import ImageConditionedMixin
+from .mixins.multi_image_conditioned import MultiImageConditionedMixin
+from .mixins.sparse_structure_latent_conditioned import (
+    SparseStructureLatentConditionedMixin,
+)
 from .mixins.text_conditioned import TextConditionedMixin
-from .mixins.sparse_structure_latent_conditioned import SparseStructureLatentConditionedMixin
 
 
 class FlowMatchingTrainer(BasicTrainer):
@@ -242,38 +245,6 @@ class FlowMatchingTrainer(BasicTrainer):
 class FlowMatchingCFGTrainer(ClassifierFreeGuidanceMixin, FlowMatchingTrainer):
     """
     Trainer for diffusion model with flow matching objective and classifier-free guidance.
-
-    Args:
-        models (dict[str, nn.Module]): Models to train.
-        dataset (torch.utils.data.Dataset): Dataset.
-        output_dir (str): Output directory.
-        load_dir (str): Load directory.
-        step (int): Step to load.
-        batch_size (int): Batch size.
-        batch_size_per_gpu (int): Batch size per GPU. If specified, batch_size will be ignored.
-        batch_split (int): Split batch with gradient accumulation.
-        max_steps (int): Max steps.
-        optimizer (dict): Optimizer config.
-        lr_scheduler (dict): Learning rate scheduler config.
-        elastic (dict): Elastic memory management config.
-        grad_clip (float or dict): Gradient clip config.
-        ema_rate (float or list): Exponential moving average rates.
-        fp16_mode (str): FP16 mode.
-            - None: No FP16.
-            - 'inflat_all': Hold a inflated fp32 master param for all params.
-            - 'amp': Automatic mixed precision.
-        fp16_scale_growth (float): Scale growth for FP16 gradient backpropagation.
-        finetune_ckpt (dict): Finetune checkpoint.
-        log_param_stats (bool): Log parameter stats.
-        i_print (int): Print interval.
-        i_log (int): Log interval.
-        i_sample (int): Sample interval.
-        i_save (int): Save interval.
-        i_ddpcheck (int): DDP check interval.
-
-        t_schedule (dict): Time schedule for flow matching.
-        sigma_min (float): Minimum noise level.
-        p_uncond (float): Probability of dropping conditions.
     """
 
     pass
@@ -282,39 +253,6 @@ class FlowMatchingCFGTrainer(ClassifierFreeGuidanceMixin, FlowMatchingTrainer):
 class TextConditionedFlowMatchingCFGTrainer(TextConditionedMixin, FlowMatchingCFGTrainer):
     """
     Trainer for text-conditioned diffusion model with flow matching objective and classifier-free guidance.
-
-    Args:
-        models (dict[str, nn.Module]): Models to train.
-        dataset (torch.utils.data.Dataset): Dataset.
-        output_dir (str): Output directory.
-        load_dir (str): Load directory.
-        step (int): Step to load.
-        batch_size (int): Batch size.
-        batch_size_per_gpu (int): Batch size per GPU. If specified, batch_size will be ignored.
-        batch_split (int): Split batch with gradient accumulation.
-        max_steps (int): Max steps.
-        optimizer (dict): Optimizer config.
-        lr_scheduler (dict): Learning rate scheduler config.
-        elastic (dict): Elastic memory management config.
-        grad_clip (float or dict): Gradient clip config.
-        ema_rate (float or list): Exponential moving average rates.
-        fp16_mode (str): FP16 mode.
-            - None: No FP16.
-            - 'inflat_all': Hold a inflated fp32 master param for all params.
-            - 'amp': Automatic mixed precision.
-        fp16_scale_growth (float): Scale growth for FP16 gradient backpropagation.
-        finetune_ckpt (dict): Finetune checkpoint.
-        log_param_stats (bool): Log parameter stats.
-        i_print (int): Print interval.
-        i_log (int): Log interval.
-        i_sample (int): Sample interval.
-        i_save (int): Save interval.
-        i_ddpcheck (int): DDP check interval.
-
-        t_schedule (dict): Time schedule for flow matching.
-        sigma_min (float): Minimum noise level.
-        p_uncond (float): Probability of dropping conditions.
-        text_cond_model(str): Text conditioning model.
     """
 
     pass
@@ -323,80 +261,24 @@ class TextConditionedFlowMatchingCFGTrainer(TextConditionedMixin, FlowMatchingCF
 class ImageConditionedFlowMatchingCFGTrainer(ImageConditionedMixin, FlowMatchingCFGTrainer):
     """
     Trainer for image-conditioned diffusion model with flow matching objective and classifier-free guidance.
-
-    Args:
-        models (dict[str, nn.Module]): Models to train.
-        dataset (torch.utils.data.Dataset): Dataset.
-        output_dir (str): Output directory.
-        load_dir (str): Load directory.
-        step (int): Step to load.
-        batch_size (int): Batch size.
-        batch_size_per_gpu (int): Batch size per GPU. If specified, batch_size will be ignored.
-        batch_split (int): Split batch with gradient accumulation.
-        max_steps (int): Max steps.
-        optimizer (dict): Optimizer config.
-        lr_scheduler (dict): Learning rate scheduler config.
-        elastic (dict): Elastic memory management config.
-        grad_clip (float or dict): Gradient clip config.
-        ema_rate (float or list): Exponential moving average rates.
-        fp16_mode (str): FP16 mode.
-            - None: No FP16.
-            - 'inflat_all': Hold a inflated fp32 master param for all params.
-            - 'amp': Automatic mixed precision.
-        fp16_scale_growth (float): Scale growth for FP16 gradient backpropagation.
-        finetune_ckpt (dict): Finetune checkpoint.
-        log_param_stats (bool): Log parameter stats.
-        i_print (int): Print interval.
-        i_log (int): Log interval.
-        i_sample (int): Sample interval.
-        i_save (int): Save interval.
-        i_ddpcheck (int): DDP check interval.
-
-        t_schedule (dict): Time schedule for flow matching.
-        sigma_min (float): Minimum noise level.
-        p_uncond (float): Probability of dropping conditions.
-        image_cond_model (str): Image conditioning model.
     """
 
     pass
 
 
-class SparseStructureLatentConditionedFlowMatchingCFGTrainer(SparseStructureLatentConditionedMixin, FlowMatchingCFGTrainer):
+class MultiImageConditionedFlowMatchingCFGTrainer(MultiImageConditionedMixin, FlowMatchingCFGTrainer):
+    """
+    Trainer for multi-image-conditioned diffusion model with flow matching objective and classifier-free guidance.
+    """
+
+    pass
+
+
+class SparseStructureLatentConditionedFlowMatchingCFGTrainer(
+    SparseStructureLatentConditionedMixin, FlowMatchingCFGTrainer
+):
     """
     Trainer for sparse structure latent-conditioned diffusion model with flow matching objective and classifier-free guidance.
-
-    Args:
-        models (dict[str, nn.Module]): Models to train.
-        dataset (torch.utils.data.Dataset): Dataset.
-        output_dir (str): Output directory.
-        load_dir (str): Load directory.
-        step (int): Step to load.
-        batch_size (int): Batch size.
-        batch_size_per_gpu (int): Batch size per GPU. If specified, batch_size will be ignored.
-        batch_split (int): Split batch with gradient accumulation.
-        max_steps (int): Max steps.
-        optimizer (dict): Optimizer config.
-        lr_scheduler (dict): Learning rate scheduler config.
-        elastic (dict): Elastic memory management config.
-        grad_clip (float or dict): Gradient clip config.
-        ema_rate (float or list): Exponential moving average rates.
-        fp16_mode (str): FP16 mode.
-            - None: No FP16.
-            - 'inflat_all': Hold a inflated fp32 master param for all params.
-            - 'amp': Automatic mixed precision.
-        fp16_scale_growth (float): Scale growth for FP16 gradient backpropagation.
-        finetune_ckpt (dict): Finetune checkpoint.
-        log_param_stats (bool): Log parameter stats.
-        i_print (int): Print interval.
-        i_log (int): Log interval.
-        i_sample (int): Sample interval.
-        i_save (int): Save interval.
-        i_ddpcheck (int): DDP check interval.
-
-        t_schedule (dict): Time schedule for flow matching.
-        sigma_min (float): Minimum noise level.
-        p_uncond (float): Probability of dropping conditions.
-        ss_latent_model (str): Sparse structure latent model.
     """
 
     pass

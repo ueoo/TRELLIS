@@ -522,15 +522,15 @@ def main(arg):
     if arg.geo_mode:
         override_material()
 
-    # Create a list of views
-    to_export = {
-        "aabb": [[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
-        "scale": scale,
-        "offset": [offset.x, offset.y, offset.z],
-        "frames": [],
-    }
     json_file = os.path.join(arg.output_folder, "transforms.json")
     if not os.path.exists(json_file):
+        # Create a list of views
+        to_export = {
+            "aabb": [[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
+            "scale": scale,
+            "offset": [offset.x, offset.y, offset.z],
+            "frames": [],
+        }
         views = json.loads(arg.views)
         for i, view in enumerate(views):
             cam.location = (

@@ -21,6 +21,7 @@
     "dataset": {
         "name": "MultiImageConditionedSparseStructureLatent",
         "args": {
+            "view_count": 3,
             "latent_model": "ss_enc_conv3d_16l8_fp16",
             "min_aesthetic_score": 4.5,
             "image_size": 518,
@@ -28,10 +29,11 @@
         }
     },
     "trainer": {
-        "name": "ImageConditionedFlowMatchingCFGTrainer",
+        "name": "MultiImageConditionedFlowMatchingCFGTrainer",
         "args": {
-            "max_steps": 100000,
-            "batch_size_per_gpu": 4,
+            "view_count": 3,
+            "max_steps": 1000000,
+            "batch_size_per_gpu": 2,
             "batch_split": 1,
             "num_workers": 8,
             "optimizer": {

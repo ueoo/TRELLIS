@@ -13,6 +13,7 @@ from ..representations.octree import DfsOctree as Octree
 from .components import (
     ImageAllConditionedMixin,
     ImageConditionedMixin,
+    MultiImageConditionedMixin,
     PrevImageCondConditionedMixin,
     PrevImageConditionedMixin,
     SparseStructureLatentConditionedMixin,
@@ -226,6 +227,14 @@ class ImageConditionedSparseStructureLatent(ImageConditionedMixin, SparseStructu
 class ImageAllConditionedSparseStructureLatent(ImageAllConditionedMixin, SparseStructureLatent):
     """
     Image-all-conditioned sparse structure dataset
+    """
+
+    pass
+
+
+class MultiImageConditionedSparseStructureLatent(MultiImageConditionedMixin, SparseStructureLatent):
+    """
+    Multi-image-conditioned sparse structure dataset
     """
 
     pass
