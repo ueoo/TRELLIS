@@ -175,50 +175,69 @@ def read_statistics_parts(output_dir: str) -> List[Tuple[str, List[str]]]:
 
 def aggregate_statistics_lines(parts: List[Tuple[str, List[str]]], merged_meta: pd.DataFrame) -> List[str]:
     lines: List[str] = []
-    lines.append("Statistics (merged):\n")
-    # Simple global statistics based on merged metadata
+    # Header must match part files exactly
+    lines.append("Statistics:\n")
+
+    # Compute global statistics based on merged metadata
     num_assets = len(merged_meta)
-    num_downloaded = merged_meta["local_path"].count() if "local_path" in merged_meta.columns else 0
-    num_rendered = merged_meta["rendered"].sum() if "rendered" in merged_meta.columns else 0
-    num_voxelized = merged_meta["voxelized"].sum() if "voxelized" in merged_meta.columns else 0
+
+    def count_non_empty(series_name: str) -> int:
+        if series_name not in merged_meta.columns:
+            return 0
+        s = merged_meta[series_name]
+        mask = s.notna() & (s.astype(str) != "")
+        return int(mask.sum())
+
+    def sum_flag(flag_name: str) -> int:
+        if flag_name not in merged_meta.columns:
+            return 0
+        s = merged_meta[flag_name]
+        try:
+            return int(pd.Series(s).astype(bool).sum())
+        except Exception:
+            return int(pd.Series(s).astype(bool).sum())
+
+    num_downloaded = count_non_empty("local_path")
+    num_rendered = sum_flag("rendered")
+    num_voxelized = sum_flag("voxelized")
 
     lines.append(f"  - Number of assets: {num_assets}\n")
     lines.append(f"  - Number of assets downloaded: {num_downloaded}\n")
     lines.append(f"  - Number of assets rendered: {num_rendered}\n")
     lines.append(f"  - Number of assets voxelized: {num_voxelized}\n")
 
-    # Per-model counts if present
+    # Per-model counts using exact wording from part files
     model_cols = [c for c in merged_meta.columns if c.startswith("feature_")]
     if len(model_cols) != 0:
         lines.append("  - Number of assets with image features extracted:\n")
         for c in model_cols:
-            lines.append(f"    - {c[len('feature_') :]}: {merged_meta[c].sum()}\n")
+            lines.append(f"    - {c[len('feature_') :]}: {int(merged_meta[c].sum())}\n")
 
     latent_cols = [c for c in merged_meta.columns if c.startswith("latent_")]
     if len(latent_cols) != 0:
-        lines.append("  - Number of assets with latents encoded:\n")
+        lines.append("  - Number of assets with latents extracted:\n")
         for c in latent_cols:
-            lines.append(f"    - {c[len('latent_') :]}: {merged_meta[c].sum()}\n")
+            lines.append(f"    - {c[len('latent_') :]}: {int(merged_meta[c].sum())}\n")
 
     ss_latent_cols = [c for c in merged_meta.columns if c.startswith("ss_latent_")]
     if len(ss_latent_cols) != 0:
-        lines.append("  - Number of assets with sparse-structure latents encoded:\n")
+        lines.append("  - Number of assets with sparse structure latents extracted:\n")
         for c in ss_latent_cols:
-            lines.append(f"    - {c[len('ss_latent_') :]}: {merged_meta[c].sum()}\n")
+            lines.append(f"    - {c[len('ss_latent_') :]}: {int(merged_meta[c].sum())}\n")
 
-    # Append a section enumerating sources merged
+    # Additional lines seen in part files
+    lines.append(f"  - Number of assets with captions: {count_non_empty('captions')}\n")
+    lines.append(f"  - Number of assets with fixview rendered: {sum_flag('fixview_rendered')}\n")
+    lines.append(f"  - Number of assets with image conditions: {sum_flag('cond_rendered')}\n")
+    lines.append(f"  - Number of assets with test image conditions: {sum_flag('cond_rendered_test')}\n")
+
+    # Append a section enumerating full source stats files
     if len(parts) != 0:
         lines.append("\nSources merged (raw snippets):\n")
         for fname, content in parts:
-            lines.append(f"-- {fname} --\n")
-            # Include first few non-empty lines as reference
-            shown = 0
-            for ln in content:
-                if ln.strip() != "":
-                    lines.append("    " + ln)
-                    shown += 1
-                if shown >= 5:
-                    break
+            lines.append(f"source: {fname}\n")
+            # Include full content as-is
+            lines.extend(content)
     return lines
 
 
