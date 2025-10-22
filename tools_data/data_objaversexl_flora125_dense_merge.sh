@@ -12,3 +12,4 @@ python dataset_toolkits/build_metadata_merge.py --output_dir $data_dir
 
 exit 0
 }
+

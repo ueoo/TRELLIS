@@ -15,15 +15,7 @@ from easydict import EasyDict as edict
 
 
 def _voxelize(file, sha256, output_dir):
-    mesh_path = os.path.join(output_dir, "renders", sha256, "mesh.ply")
-    if not os.path.exists(mesh_path):
-        print(f"Mesh file not found for {sha256}")
-        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
-    try:
-        mesh = o3d.io.read_triangle_mesh(mesh_path)
-    except Exception as e:
-        print(f"Error reading mesh file for {sha256}: {e}")
-        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
+    mesh = o3d.io.read_triangle_mesh(os.path.join(output_dir, "renders", sha256, "mesh.ply"))
     # clamp vertices to the range [-0.5, 0.5]
     vertices = np.clip(np.asarray(mesh.vertices), -0.5 + 1e-6, 0.5 - 1e-6)
     mesh.vertices = o3d.utility.Vector3dVector(vertices)
@@ -31,15 +23,9 @@ def _voxelize(file, sha256, output_dir):
         mesh, voxel_size=1 / 64, min_bound=(-0.5, -0.5, -0.5), max_bound=(0.5, 0.5, 0.5)
     )
     vertices = np.array([voxel.grid_index for voxel in voxel_grid.get_voxels()])
-    if np.any(vertices < 0) or np.any(vertices >= 64):
-        print(f"Some vertices are out of bounds for {sha256}")
-        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
+    assert np.all(vertices >= 0) and np.all(vertices < 64), "Some vertices are out of bounds"
     vertices = (vertices + 0.5) / 64 - 0.5
-    out_path = os.path.join(output_dir, "voxels", f"{sha256}.ply")
-    utils3d.io.write_ply(out_path, vertices)
-    if not os.path.exists(out_path):
-        print(f"Failed to write voxelized mesh for {sha256}")
-        return {"sha256": sha256, "voxelized": False, "num_voxels": 0}
+    utils3d.io.write_ply(os.path.join(output_dir, "voxels", f"{sha256}.ply"), vertices)
     return {"sha256": sha256, "voxelized": True, "num_voxels": len(vertices)}
 
 

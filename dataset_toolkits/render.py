@@ -93,7 +93,7 @@ if __name__ == "__main__":
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
-    parser.add_argument("--max_workers", type=int, default=6)
+    parser.add_argument("--max_workers", type=int, default=8)
     parser.add_argument("--gpu_idx", type=int, default=0)
     parser.add_argument("--gpu_num", type=int, default=1)
     opt = parser.parse_args(sys.argv[2:])
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             records.append({"sha256": sha256, "rendered": True})
             metadata = metadata[metadata["sha256"] != sha256]
 
-    print(f"Rendering {len(metadata)} objects...")
+    print(f"GPU {opt.gpu_idx} rendering {len(metadata)} objects...")
 
     # Process objects with a simple for-loop on the assigned GPU
     metadata = metadata.to_dict("records")

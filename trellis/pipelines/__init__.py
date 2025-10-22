@@ -1,6 +1,7 @@
 from . import samplers
 from .trellis_image_to_3d import TrellisImageTo3DPipeline
 from .trellis_image_to_4d import TrellisImageTo4DPipeline
+from .trellis_multi_image_to_3d import TrellisMultiImageTo3DPipeline
 from .trellis_text_to_3d import TrellisTextTo3DPipeline
 
 

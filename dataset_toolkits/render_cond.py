@@ -3,6 +3,7 @@ import copy
 import importlib
 import json
 import os
+import shutil
 import sys
 
 from functools import partial
@@ -12,11 +13,12 @@ import numpy as np
 import pandas as pd
 
 from easydict import EasyDict as edict
+from tqdm import tqdm
 from utils import sphere_hammersley_sequence
 
 
 BLENDER_LINK = "https://download.blender.org/release/Blender4.5/blender-4.5.2-linux-x64.tar.xz"
-BLENDER_INSTALLATION_PATH = "/tmp"
+BLENDER_INSTALLATION_PATH = "/svl/u/yuegao/blender"
 BLENDER_PATH = f"{BLENDER_INSTALLATION_PATH}/blender-4.5.2-linux-x64/blender"
 
 
@@ -51,8 +53,8 @@ def _render_cond(file_path, sha256, output_dir, num_views):
     # fov = [2 * np.arcsin(np.sqrt(3) / 2 / r) for r in radius]
 
     # for regrowth, we simplify the fov and radius
-    fov_min, fov_max = 30, 50
-    radius_min, radius_max = 0.5, 2.0
+    fov_min, fov_max = 35, 45
+    radius_min, radius_max = 1.25, 1.75
     radius = [np.random.uniform(radius_min, radius_max) for _ in range(num_views)]
     fov = [np.random.uniform(fov_min, fov_max) for _ in range(num_views)]
     fov = [f / 180 * np.pi for f in fov]
@@ -76,7 +78,7 @@ def _render_cond(file_path, sha256, output_dir, num_views):
     if file_path.endswith(".blend"):
         args.insert(1, file_path)
 
-    call(args, stdout=DEVNULL)
+    call(args, stdout=DEVNULL, stderr=DEVNULL)
 
     if os.path.exists(os.path.join(output_folder, "transforms.json")):
         return {"sha256": sha256, "cond_rendered": True}
@@ -94,13 +96,19 @@ if __name__ == "__main__":
         help="Filter objects with aesthetic score lower than this value",
     )
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
-    parser.add_argument("--num_views", type=int, default=24, help="Number of views to render")
+    parser.add_argument("--num_views", type=int, default=150, help="Number of views to render")
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
     parser.add_argument("--max_workers", type=int, default=8)
+    parser.add_argument("--gpu_idx", type=int, default=0)
+    parser.add_argument("--gpu_num", type=int, default=1)
     opt = parser.parse_args(sys.argv[2:])
     opt = edict(vars(opt))
+
+    # Pin this process to a single GPU (so Blender uses the intended device)
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(opt.gpu_idx)
 
     os.makedirs(os.path.join(opt.output_dir, "renders_cond"), exist_ok=True)
 
@@ -112,6 +120,15 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(opt.output_dir, "metadata.csv")):
         raise ValueError("metadata.csv not found")
     metadata = pd.read_csv(os.path.join(opt.output_dir, "metadata.csv"))
+
+    print(f"load metadata {len(metadata)} done")
+    start = len(metadata) * opt.rank // opt.world_size
+    end = len(metadata) * (opt.rank + 1) // opt.world_size
+    metadata = metadata[start:end]
+
+    # Further shard across GPUs
+    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
+
     if opt.instances is None:
         metadata = metadata[metadata["local_path"].notna()]
         if opt.filter_low_aesthetic_score is not None:
@@ -126,9 +143,6 @@ if __name__ == "__main__":
             instances = opt.instances.split(",")
         metadata = metadata[metadata["sha256"].isin(instances)]
 
-    start = len(metadata) * opt.rank // opt.world_size
-    end = len(metadata) * (opt.rank + 1) // opt.world_size
-    metadata = metadata[start:end]
     records = []
 
     # filter out objects that are already processed
@@ -137,12 +151,25 @@ if __name__ == "__main__":
             records.append({"sha256": sha256, "cond_rendered": True})
             metadata = metadata[metadata["sha256"] != sha256]
 
-    print(f"Processing {len(metadata)} objects...")
+    print(f"GPU {opt.gpu_idx} rendering {len(metadata)} objects...")
 
-    # process objects
-    func = partial(_render_cond, output_dir=opt.output_dir, num_views=opt.num_views)
-    cond_rendered = dataset_utils.foreach_instance(
-        metadata, opt.output_dir, func, max_workers=opt.max_workers, desc="Rendering objects"
-    )
-    cond_rendered = pd.concat([cond_rendered, pd.DataFrame.from_records(records)])
-    cond_rendered.to_csv(os.path.join(opt.output_dir, f"cond_rendered_{opt.rank}.csv"), index=False)
+    # Process objects with a simple for-loop on the assigned GPU
+    metadata = metadata.to_dict("records")
+    for metadatum in tqdm(
+        metadata,
+        desc=f"GPU {opt.gpu_idx}",
+        position=int(opt.gpu_idx),
+        leave=True,
+    ):
+        file_path = os.path.join(opt.output_dir, metadatum["local_path"])
+        record = _render_cond(
+            file_path,
+            metadatum["sha256"],
+            opt.output_dir,
+            opt.num_views,
+        )
+        if record is not None:
+            records.append(record)
+
+    rendered_df = pd.DataFrame.from_records(records)
+    rendered_df.to_csv(os.path.join(opt.output_dir, f"cond_rendered_{opt.rank}_{opt.gpu_idx}.csv"), index=False)

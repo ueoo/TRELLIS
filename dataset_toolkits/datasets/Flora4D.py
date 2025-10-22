@@ -20,8 +20,8 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def get_metadata(split, **kwargs):
-    # meta_file_name = f"growth_4d_data_flora_{split}.csv"
-    meta_file_name = f"flora125_{split}_data.csv"
+    # meta_file_name = f"growth_4d_flora_{split}.csv"
+    meta_file_name = f"flora125_{split}.csv"
     metadata_path = os.path.join(FLORA_4D_DATA_ROOT, meta_file_name)
     assert os.path.exists(metadata_path), f"Metadata file {metadata_path} does not exist"
 

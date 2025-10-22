@@ -199,28 +199,36 @@ class ImageAllConditionedMixin:
         return pack
 
 
-
 class MultiImageConditionedMixin:
-    def __init__(self, roots, *, image_size=518, view_count=3, **kwargs):
+    def __init__(self, roots, *, image_size=518, view_count=3, flora_ratio=0.0, **kwargs):
         self.image_size = image_size
         self.view_count = view_count
+        self.flora_ratio = flora_ratio
+        # 0.0 means, just use the metadata
         super().__init__(roots, **kwargs)
 
     def filter_metadata(self, metadata):
         metadata, stats = super().filter_metadata(metadata)
         metadata = metadata[(metadata["rendered"]) & (metadata["fixview_rendered"])]
+        self.flora_metadata = metadata["flora" in metadata["sha256"]]
         stats["Fixview rendered"] = len(metadata)
+        stats["Flora"] = len(self.flora_metadata)
         return metadata, stats
 
     def get_instance(self, root, instance):
         pack = super().get_instance(root, instance)
+
+        if np.random.rand() < self.flora_ratio:
+            instance = np.random.choice(self.flora_metadata["sha256"])
+        else:
+            instance = instance
 
         image_root = os.path.join(root, "renders_fixview", instance)
         with open(os.path.join(image_root, "transforms.json")) as f:
             metadata = json.load(f)
         frames = metadata["frames"]
         frames = sorted(frames, key=lambda x: x["file_path"])
-        views = frames[:self.view_count]
+        views = frames[: self.view_count]
         multi_view_images = []
         for i in range(self.view_count):
             metadata = views[i]
@@ -254,6 +262,7 @@ class MultiImageConditionedMixin:
             multi_view_images.append(image)
         pack["cond"] = torch.stack(multi_view_images, dim=-1)
         return pack
+
 
 class SparseStructureLatentConditionedMixin:
     def __init__(self, roots, **kwargs):

@@ -507,10 +507,11 @@ def main(arg):
     print("[INFO] Scene initialized.")
 
     # normalize scene
-    scale, offset = normalize_scene()
+    # scale, offset = normalize_scene()
     print("[INFO] Scene normalized.")
     # scale, offset = scale_scene(1.0)
     # print("[INFO] Scene scaled.")
+    scale, offset = 1.0, Vector((0, 0, 0))
     print(f"{arg.object} | Scale: {scale}, Offset: {offset}")
 
     # Initialize camera and lighting
