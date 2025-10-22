@@ -7,6 +7,7 @@ __attributes = {
     "SparseStructureFlowModel": "sparse_structure_flow",
     "SparseStructureLatentResidualSparseStructureFlowModel": "sparse_structure_flow_residual",
     "SparseStructureLatentCondSparseStructureFlowModel": "sparse_structure_flow",
+    "ControlSparseStructureLatentCondSparseStructureFlowModel": "sparse_structure_flow_controlnet",
     "SLatEncoder": "structured_latent_vae",
     "SLatGaussianDecoder": "structured_latent_vae",
     "SLatRadianceFieldDecoder": "structured_latent_vae",
@@ -102,6 +103,9 @@ if __name__ == "__main__":
     from .sparse_structure_flow import (
         SparseStructureFlowModel,
         SparseStructureLatentCondSparseStructureFlowModel,
+    )
+    from .sparse_structure_flow_controlnet import (
+        ControlSparseStructureLatentCondSparseStructureFlowModel,
     )
     from .sparse_structure_flow_residual import (
         SparseStructureLatentResidualSparseStructureFlowModel,
