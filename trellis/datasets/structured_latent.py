@@ -12,6 +12,7 @@ from ..modules.sparse.basic import SparseTensor
 from ..utils.data_utils import load_balanced_group_indices
 from ..utils.render_utils import get_renderer
 from .components import (
+    FloraResampleMixin,
     ImageAllConditionedMixin,
     ImageConditionedMixin,
     MultiImageConditionedMixin,
@@ -279,7 +280,7 @@ class ImageAllConditionedSLat(ImageAllConditionedMixin, SLat):
     pass
 
 
-class MultiImageConditionedSLat(MultiImageConditionedMixin, SLat):
+class MultiImageConditionedSLat(FloraResampleMixin, MultiImageConditionedMixin, SLat):
     """
     Multi-image-conditioned structured latent dataset
     """

@@ -28,7 +28,7 @@
     "trainer": {
         "name": "SparseStructureLatentConditionedFlowMatchingCFGTrainer",
         "args": {
-            "max_steps": 100000,
+            "max_steps": 1000000,
             "batch_size_per_gpu": 4,
             "batch_split": 4,
             "num_workers": 8,
@@ -62,10 +62,7 @@
                     "std": 1.0
                 }
             },
-            "sigma_min": 1e-5,
-            "finetune_ckpt": {
-                "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/ss_flow_img_dit_L_16l8_fp16.safetensors"
-            }
+            "sigma_min": 1e-5
         }
     }
 }

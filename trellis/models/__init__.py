@@ -5,6 +5,7 @@ __attributes = {
     "SparseStructureEncoder": "sparse_structure_vae",
     "SparseStructureDecoder": "sparse_structure_vae",
     "SparseStructureFlowModel": "sparse_structure_flow",
+    "SparseStructureLatentResidualSparseStructureFlowModel": "sparse_structure_flow_residual",
     "SparseStructureLatentCondSparseStructureFlowModel": "sparse_structure_flow",
     "SLatEncoder": "structured_latent_vae",
     "SLatGaussianDecoder": "structured_latent_vae",
@@ -16,8 +17,12 @@ __attributes = {
     "ElasticSLatMeshDecoder": "structured_latent_vae",
     "SLatFlowModel": "structured_latent_flow",
     "SLatCondSLatFlowModel": "structured_latent_flow",
+    "SLatResidualSLatFlowModel": "structured_latent_flow_residual",
+    "ControlSLatCondSLatFlowModel": "structured_latent_flow_controlnet",
     "ElasticSLatFlowModel": "structured_latent_flow",
     "ElasticSLatCondSLatFlowModel": "structured_latent_flow",
+    "ElasticSLatResidualSLatFlowModel": "structured_latent_flow_residual",
+    "ElasticControlSLatCondSLatFlowModel": "structured_latent_flow_controlnet",
     "ElasticPrevImageCondSLatFlowModel": "structured_latent_flow",
     "LoRASparseStructureFlowModel": "lora_wrappers_sparse",
     "LoRASparseStructureLatentCondSparseStructureFlowModel": "lora_wrappers_sparse",
@@ -98,6 +103,9 @@ if __name__ == "__main__":
         SparseStructureFlowModel,
         SparseStructureLatentCondSparseStructureFlowModel,
     )
+    from .sparse_structure_flow_residual import (
+        SparseStructureLatentResidualSparseStructureFlowModel,
+    )
     from .sparse_structure_vae import SparseStructureDecoder, SparseStructureEncoder
     from .structured_latent_flow import (
         ElasticPrevImageCondSLatFlowModel,
@@ -106,6 +114,14 @@ if __name__ == "__main__":
         PrevImageCondSLatFlowModel,
         SLatCondSLatFlowModel,
         SLatFlowModel,
+    )
+    from .structured_latent_flow_controlnet import (
+        ControlSLatCondSLatFlowModel,
+        ElasticControlSLatCondSLatFlowModel,
+    )
+    from .structured_latent_flow_residual import (
+        ElasticSLatResidualSLatFlowModel,
+        SLatResidualSLatFlowModel,
     )
     from .structured_latent_vae import (
         ElasticSLatEncoder,

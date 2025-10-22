@@ -15,6 +15,7 @@ __all__ = [
     "sparse_batch_op",
     "sparse_cat",
     "sparse_unbind",
+    "align_to",
 ]
 
 
@@ -485,3 +486,51 @@ def sparse_unbind(input: SparseTensor, dim: int) -> List[SparseTensor]:
     else:
         feats = input.feats.unbind(dim)
         return [input.replace(f) for f in feats]
+
+
+def align_to(reference: SparseTensor, other: SparseTensor, fill_value: float = 0.0) -> SparseTensor:
+    """
+    Align `other` to have the same coordinates (and row order) as `reference`.
+    Missing rows in `other` are filled with `fill_value`.
+
+    Returns a new SparseTensor whose coords/layout match `reference` and whose
+    feats have shape (reference.num_points, other.C).
+    """
+    assert (
+        reference.coords.shape[1] == other.coords.shape[1]
+    ), f"Coordinate dim mismatch: {reference.coords.shape[1]} vs {other.coords.shape[1]}"
+
+    device = reference.device
+    dtype = other.feats.dtype
+
+    coords_ref = reference.coords.to(torch.int64)
+    coords_other = other.coords.to(torch.int64)
+
+    # Build mixed-radix codes that are unique per full coordinate (including batch)
+    DIM = coords_ref.shape[1]
+    max_vals = torch.maximum(coords_ref.max(dim=0)[0], coords_other.max(dim=0)[0]) + 1
+    # Avoid zeros in case of empty dims; ensure on CPU-safe then move back
+    max_vals = max_vals.to(torch.int64)
+
+    # Compute offsets for positional encoding into a single integer code
+    offsets = torch.cumprod(max_vals.flip(0), dim=0).flip(0)
+    offsets = torch.roll(offsets, shifts=-1, dims=0)
+    offsets[-1] = 1
+
+    codes_ref = (coords_ref * offsets).sum(dim=1)
+    codes_other = (coords_other * offsets).sum(dim=1)
+
+    # Sort other codes for efficient lookup
+    sorted_codes, sorted_idx = torch.sort(codes_other)
+    pos = torch.searchsorted(sorted_codes, codes_ref)
+    pos_clamped = torch.clamp(pos, 0, sorted_codes.shape[0] - 1)
+    match = sorted_codes[pos_clamped] == codes_ref
+
+    C = other.feats.shape[1]
+    aligned_feats = torch.full((reference.feats.shape[0], C), fill_value, dtype=dtype, device=device)
+    if match.any():
+        matched_indices_ref = match.nonzero(as_tuple=False).squeeze(1)
+        matched_indices_other = sorted_idx[pos_clamped[matched_indices_ref]]
+        aligned_feats[matched_indices_ref] = other.feats[matched_indices_other].to(dtype)
+
+    return SparseTensor(feats=aligned_feats, coords=reference.coords, shape=reference.shape, layout=reference.layout)

@@ -52,6 +52,7 @@ import importlib
 
 __attributes = {
     "SparseTensor": "basic",
+    "align_to": "basic",
     "sparse_batch_broadcast": "basic",
     "sparse_batch_op": "basic",
     "sparse_cat": "basic",

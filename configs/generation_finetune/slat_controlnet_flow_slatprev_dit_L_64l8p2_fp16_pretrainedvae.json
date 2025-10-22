@@ -1,7 +1,7 @@
 {
     "models": {
         "denoiser": {
-            "name": "ElasticSLatFlowModel",
+            "name": "ElasticControlSLatCondSLatFlowModel",
             "args": {
                 "resolution": 64,
                 "in_channels": 8,
@@ -16,17 +16,17 @@
                 "io_block_channels": [128],
                 "pe_mode": "ape",
                 "qk_rms_norm": true,
-                "use_fp16": true
+                "use_fp16": true,
+                "downsample_cond_for_control": true
             }
         }
     },
     "dataset": {
-        "name": "ImageConditionedSLat",
+        "name": "SLatConditionedSLat",
         "args": {
             "latent_model": "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16",
             "min_aesthetic_score": 4.5,
             "max_num_voxels": 32768,
-            "image_size": 518,
             "normalization": {
                 "mean": [
                     -2.1687545776367188,
@@ -53,9 +53,9 @@
         }
     },
     "trainer": {
-        "name": "ImageConditionedSparseFlowMatchingCFGTrainer",
+        "name": "SLatConditionedSparseFlowMatchingCFGTrainer",
         "args": {
-            "max_steps": 100000,
+            "max_steps": 1000000,
             "batch_size_per_gpu": 4,
             "batch_split": 2,
             "num_workers": 8,
@@ -96,11 +96,7 @@
                     "std": 1.0
                 }
             },
-            "sigma_min": 1e-5,
-            "image_cond_model": "dinov2_vitl14_reg",
-            "finetune_ckpt": {
-                "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/slat_flow_img_dit_L_64l8p2_fp16.safetensors"
-            }
+            "sigma_min": 1e-5
         }
     }
 }

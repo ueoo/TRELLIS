@@ -9,7 +9,7 @@ from ..modules import sparse as sp
 from ..modules.norm import LayerNorm32
 from ..modules.sparse.transformer import (
     ModulatedSparseTransformerBlock,
-    ModulatedSparseTransformerCrossBlock,
+    ModulatedSparseTransformerResidualBlock,
 )
 from ..modules.sparse.transformer.blocks import SparseFeedForwardNet
 from ..modules.transformer import AbsolutePositionEmbedder
@@ -17,65 +17,10 @@ from ..modules.transformer.blocks import FeedForwardNet
 from ..modules.utils import convert_module_to_f16, convert_module_to_f32, zero_module
 from .sparse_elastic_mixin import SparseTransformerElasticMixin
 from .sparse_structure_flow import TimestepEmbedder
+from .structured_latent_flow import SparseResBlock3d
 
 
-class SparseResBlock3d(nn.Module):
-    def __init__(
-        self,
-        channels: int,
-        emb_channels: int,
-        out_channels: Optional[int] = None,
-        downsample: bool = False,
-        upsample: bool = False,
-    ):
-        super().__init__()
-        self.channels = channels
-        self.emb_channels = emb_channels
-        self.out_channels = out_channels or channels
-        self.downsample = downsample
-        self.upsample = upsample
-
-        assert not (downsample and upsample), "Cannot downsample and upsample at the same time"
-
-        self.norm1 = LayerNorm32(channels, elementwise_affine=True, eps=1e-6)
-        self.norm2 = LayerNorm32(self.out_channels, elementwise_affine=False, eps=1e-6)
-        self.conv1 = sp.SparseConv3d(channels, self.out_channels, 3)
-        self.conv2 = zero_module(sp.SparseConv3d(self.out_channels, self.out_channels, 3))
-        self.emb_layers = nn.Sequential(
-            nn.SiLU(),
-            nn.Linear(emb_channels, 2 * self.out_channels, bias=True),
-        )
-        self.skip_connection = (
-            sp.SparseLinear(channels, self.out_channels) if channels != self.out_channels else nn.Identity()
-        )
-        self.updown = None
-        if self.downsample:
-            self.updown = sp.SparseDownsample(2)
-        elif self.upsample:
-            self.updown = sp.SparseUpsample(2)
-
-    def _updown(self, x: sp.SparseTensor) -> sp.SparseTensor:
-        if self.updown is not None:
-            x = self.updown(x)
-        return x
-
-    def forward(self, x: sp.SparseTensor, emb: torch.Tensor) -> sp.SparseTensor:
-        emb_out = self.emb_layers(emb).type(x.dtype)
-        scale, shift = torch.chunk(emb_out, 2, dim=1)
-
-        x = self._updown(x)
-        h = x.replace(self.norm1(x.feats))
-        h = h.replace(F.silu(h.feats))
-        h = self.conv1(h)
-        h = h.replace(self.norm2(h.feats)) * (1 + scale) + shift
-        h = h.replace(F.silu(h.feats))
-        h = self.conv2(h)
-        h = h + self.skip_connection(x)
-
-        return h
-
-
-class SLatFlowModel(nn.Module):
+class SLatResidualSLatFlowModel(nn.Module):
     def __init__(
         self,
         resolution: int,
@@ -97,8 +42,7 @@ class SLatFlowModel(nn.Module):
         share_mod: bool = False,
         qk_rms_norm: bool = False,
         qk_rms_norm_cross: bool = False,
-        input_cond: bool = False,
-        mlp_cond: bool = False,
+        residual_position: Literal["every", "final"] = "final",
     ):
         super().__init__()
         self.resolution = resolution
@@ -120,8 +64,8 @@ class SLatFlowModel(nn.Module):
         self.qk_rms_norm = qk_rms_norm
         self.qk_rms_norm_cross = qk_rms_norm_cross
         self.dtype = torch.float16 if use_fp16 else torch.float32
-        self.input_cond = input_cond
-        self.mlp_cond = mlp_cond
+
+        self.residual_position = residual_position
 
         if self.io_block_channels is not None:
             assert int(np.log2(patch_size)) == np.log2(patch_size), "Patch size must be a power of 2"
@@ -139,6 +83,7 @@ class SLatFlowModel(nn.Module):
         self.input_layer = sp.SparseLinear(
             in_channels, model_channels if io_block_channels is None else io_block_channels[0]
         )
+        self.input_layer_cond = sp.SparseLinear(in_channels, cond_channels)
 
         self.input_blocks = nn.ModuleList([])
         if io_block_channels is not None:
@@ -162,23 +107,38 @@ class SLatFlowModel(nn.Module):
                     )
                 )
 
-        self.blocks = nn.ModuleList(
-            [
-                ModulatedSparseTransformerCrossBlock(
-                    model_channels,
-                    cond_channels,
-                    num_heads=self.num_heads,
-                    mlp_ratio=self.mlp_ratio,
-                    attn_mode="full",
-                    use_checkpoint=self.use_checkpoint,
-                    use_rope=(pe_mode == "rope"),
-                    share_mod=self.share_mod,
-                    qk_rms_norm=self.qk_rms_norm,
-                    qk_rms_norm_cross=self.qk_rms_norm_cross,
-                )
-                for _ in range(num_blocks)
-            ]
-        )
+        if self.residual_position == "every":
+            self.blocks = nn.ModuleList(
+                [
+                    ModulatedSparseTransformerResidualBlock(
+                        model_channels,
+                        num_heads=self.num_heads,
+                        mlp_ratio=self.mlp_ratio,
+                        attn_mode="full",
+                        use_checkpoint=self.use_checkpoint,
+                        use_rope=(pe_mode == "rope"),
+                        share_mod=self.share_mod,
+                        qk_rms_norm=self.qk_rms_norm,
+                    )
+                    for _ in range(num_blocks)
+                ]
+            )
+        elif self.residual_position == "final":
+            self.blocks = nn.ModuleList(
+                [
+                    ModulatedSparseTransformerBlock(
+                        model_channels,
+                        num_heads=self.num_heads,
+                        mlp_ratio=self.mlp_ratio,
+                        attn_mode="full",
+                        use_checkpoint=self.use_checkpoint,
+                        use_rope=(pe_mode == "rope"),
+                        share_mod=self.share_mod,
+                        qk_rms_norm=self.qk_rms_norm,
+                    )
+                    for _ in range(num_blocks)
+                ]
+            )
 
         self.out_blocks = nn.ModuleList([])
         if io_block_channels is not None:
@@ -262,44 +222,6 @@ class SLatFlowModel(nn.Module):
         nn.init.constant_(self.out_layer.weight, 0)
         nn.init.constant_(self.out_layer.bias, 0)
 
-    def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: torch.Tensor) -> sp.SparseTensor:
-        h = self.input_layer(x).type(self.dtype)
-        t_emb = self.t_embedder(t)
-        if self.share_mod:
-            t_emb = self.adaLN_modulation(t_emb)
-        t_emb = t_emb.type(self.dtype)
-        cond = cond.type(self.dtype)
-
-        skips = []
-        # pack with input blocks
-        for block in self.input_blocks:
-            h = block(h, t_emb)
-            skips.append(h.feats)
-
-        if self.pe_mode == "ape":
-            h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
-        for block in self.blocks:
-            h = block(h, t_emb, cond)
-
-        # unpack with output blocks
-        for block, skip in zip(self.out_blocks, reversed(skips)):
-            if self.use_skip_connection:
-                h = block(h.replace(torch.cat([h.feats, skip], dim=1)), t_emb)
-            else:
-                h = block(h, t_emb)
-
-        h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
-        h = self.out_layer(h.type(x.dtype))
-        return h
-
-
-class SLatCondSLatFlowModel(SLatFlowModel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.input_layer_cond = sp.SparseLinear(self.in_channels, self.cond_channels)
-        if self.mlp_cond:
-            self.mlp_layer_cond = SparseFeedForwardNet(self.cond_channels, mlp_ratio=self.mlp_ratio)
-
     def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: sp.SparseTensor) -> sp.SparseTensor:
         h = self.input_layer(x).type(self.dtype)
         t_emb = self.t_embedder(t)
@@ -314,16 +236,24 @@ class SLatCondSLatFlowModel(SLatFlowModel):
             skips.append(h.feats)
 
         cond = self.input_layer_cond(cond)
-        if self.mlp_cond:
-            cond = self.mlp_layer_cond(cond)
         cond = cond.type(self.dtype)
 
         if self.pe_mode == "ape":
             h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
             cond = cond + self.pos_embedder(cond.coords[:, 1:]).type(self.dtype)
 
-        for block in self.blocks:
-            h = block(h, t_emb, cond)
+        # Align cond's spatial resolution with h before residual blocks when needed
+        cond_context = cond
+        if self.residual_position == "every" and self.io_block_channels is not None:
+            for _ in range(len(self.io_block_channels)):
+                cond_context = sp.SparseDownsample(2)(cond_context)
+
+        if self.residual_position == "every":
+            for block in self.blocks:
+                h = block(h, t_emb, cond_context)
+        elif self.residual_position == "final":
+            for block in self.blocks:
+                h = block(h, t_emb)
 
         # unpack with output blocks
         for block, skip in zip(self.out_blocks, reversed(skips)):
@@ -333,73 +263,16 @@ class SLatCondSLatFlowModel(SLatFlowModel):
                 h = block(h, t_emb)
 
         h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
+        # Align cond to h for safe addition in case coords differ
+        cond_aligned = sp.align_to(h, cond)
+        h = h + cond_aligned
         h = self.out_layer(h.type(x.dtype))
         return h
 
 
-class PrevImageCondSLatFlowModel(SLatFlowModel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.input_layer_cond = nn.Linear(self.cond_channels, self.model_channels)
-        if self.mlp_cond:
-            self.mlp_layer_cond = FeedForwardNet(self.model_channels, mlp_ratio=self.mlp_ratio)
-
-    def forward(self, x: sp.SparseTensor, t: torch.Tensor, cond: torch.Tensor) -> sp.SparseTensor:
-        h = self.input_layer(x).type(self.dtype)
-        t_emb = self.t_embedder(t)
-        if self.share_mod:
-            t_emb = self.adaLN_modulation(t_emb)
-        t_emb = t_emb.type(self.dtype)
-
-        cond = self.input_layer_cond(cond)
-        if self.mlp_cond:
-            cond = self.mlp_layer_cond(cond)
-        cond = cond.type(self.dtype)
-
-        skips = []
-        # pack with input blocks
-        for block in self.input_blocks:
-            h = block(h, t_emb)
-            skips.append(h.feats)
-
-        if self.pe_mode == "ape":
-            h = h + self.pos_embedder(h.coords[:, 1:]).type(self.dtype)
-        for block in self.blocks:
-            h = block(h, t_emb, cond)
-
-        # unpack with output blocks
-        for block, skip in zip(self.out_blocks, reversed(skips)):
-            if self.use_skip_connection:
-                h = block(h.replace(torch.cat([h.feats, skip], dim=1)), t_emb)
-            else:
-                h = block(h, t_emb)
-
-        h = h.replace(F.layer_norm(h.feats, h.feats.shape[-1:]))
-        h = self.out_layer(h.type(x.dtype))
-        return h
-
-
-class ElasticSLatFlowModel(SparseTransformerElasticMixin, SLatFlowModel):
-    """
-    SLat Flow Model with elastic memory management.
-    Used for training with low VRAM.
-    """
-
-    pass
-
-
-class ElasticSLatCondSLatFlowModel(SparseTransformerElasticMixin, SLatCondSLatFlowModel):
+class ElasticSLatResidualSLatFlowModel(SparseTransformerElasticMixin, SLatResidualSLatFlowModel):
     """
     SLat Cond SLat Flow Model with elastic memory management.
-    Used for training with low VRAM.
-    """
-
-    pass
-
-
-class ElasticPrevImageCondSLatFlowModel(SparseTransformerElasticMixin, PrevImageCondSLatFlowModel):
-    """
-    Prev Image Cond SLat Flow Model with elastic memory management.
     Used for training with low VRAM.
     """
 

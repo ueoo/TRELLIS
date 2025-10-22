@@ -11,6 +11,7 @@ from .. import models
 from ..renderers import OctreeRenderer
 from ..representations.octree import DfsOctree as Octree
 from .components import (
+    FloraResampleMixin,
     ImageAllConditionedMixin,
     ImageConditionedMixin,
     MultiImageConditionedMixin,
@@ -232,7 +233,9 @@ class ImageAllConditionedSparseStructureLatent(ImageAllConditionedMixin, SparseS
     pass
 
 
-class MultiImageConditionedSparseStructureLatent(MultiImageConditionedMixin, SparseStructureLatent):
+class MultiImageConditionedSparseStructureLatent(
+    FloraResampleMixin, MultiImageConditionedMixin, SparseStructureLatent
+):
     """
     Multi-image-conditioned sparse structure dataset
     """
