@@ -4,7 +4,7 @@ scr_root=/scr/yuegao
 
 dataset_root=$scr_root/TRELLIS_datasets
 
-data_name=Flora125Geo_train_merged
+data_name=Flora125Geo_test_merged
 data_dir=$dataset_root/${data_name}
 
 

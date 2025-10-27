@@ -1,5 +1,5 @@
 {
-export CUDA_VISIBLE_DEVICES=4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2
 python train.py \
     --config configs/generation_finetune/slat_controlnet_flow_slatprev_dit_L_64l8p2_fp16_pretrainedvae.json \
     --output_dir /viscam/projects/4d-state-machine/TRELLIS_outputs/slat_controlnet_flow_slatprev_dit_L_64l8p2_fp16_pretrainedvae_flora125geo \

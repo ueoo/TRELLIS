@@ -96,7 +96,7 @@ if __name__ == "__main__":
         help="Filter objects with aesthetic score lower than this value",
     )
     parser.add_argument("--instances", type=str, default=None, help="Instances to process")
-    parser.add_argument("--num_views", type=int, default=150, help="Number of views to render")
+    parser.add_argument("--num_views", type=int, default=50, help="Number of views to render")
     dataset_utils.add_args(parser)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)

@@ -5,10 +5,10 @@ scr_root=/scr/yuegao
 dataset_root=$scr_root/TRELLIS_datasets
 
 dataset_name=Flora4D
-data_name=Flora125Geo_train_merged
+data_name=Flora125Geo_test_merged
 data_dir=$dataset_root/${data_name}
 
-split=sparse_train
+split=sparse_test
 
 
 available_gpus=$(python -c 'import torch; print(torch.cuda.device_count())' 2>/dev/null)

@@ -1,3 +1,5 @@
+import os
+
 from contextlib import contextmanager
 from typing import *
 
@@ -268,6 +270,10 @@ class TrellisImageTo4DPipeline(Pipeline):
         formats: List[str] = ["mesh", "gaussian", "radiance_field"],
         preprocess_image: bool = True,
         num_frames: int = 120,
+        scene_name: str = None,
+        first_frame: int = 1,
+        ss_latent_prev_folder: str = None,
+        slat_latent_prev_folder: str = None,
     ) -> list[dict]:
         """
         Run the pipeline.
@@ -281,10 +287,14 @@ class TrellisImageTo4DPipeline(Pipeline):
             formats (List[str]): The formats to decode the structured latent to.
             preprocess_image (bool): Whether to preprocess the image.
         """
+        if num_samples > 1:
+            num_samples = 1
         if preprocess_image:
             image = self.preprocess_image(image)
         cond = self.get_cond([image])
+        # Ensure conditioning tensors have a batch dimension matching num_samples
         torch.manual_seed(seed)
+
         # print(f"Sampling frame 0 of {num_frames}")
         z_s, coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params)
         slat = self.sample_slat(cond, coords, slat_sampler_params)
@@ -294,19 +304,47 @@ class TrellisImageTo4DPipeline(Pipeline):
         prev_slat = slat
 
         try:
-            for frame_idx in trange(1, num_frames):
+            # Precompute normalization tensors for reuse across frames
+            std = torch.tensor(self.slat_normalization["std"]).to(self.device)
+            mean = torch.tensor(self.slat_normalization["mean"]).to(self.device)
+            batch_size = num_samples
+            for frame_idx in trange(first_frame + 1, num_frames + first_frame + 1, desc="Sampling frames"):
                 # print(f"Sampling frame {frame_idx} of {num_frames}")
+                if ss_latent_prev_folder:
+                    ss_latent_path = os.path.join(ss_latent_prev_folder, f"{scene_name}_{frame_idx:04d}.npz")
+                    ss_latent = np.load(ss_latent_path)
+                    ss_latent = torch.from_numpy(ss_latent["mean"]).float().to(self.device)
+                    ss_latent = ss_latent.unsqueeze(0)
+                    prev_z_s = ss_latent
+
                 ss_cond = {
                     "cond": prev_z_s,
                     "neg_cond": torch.zeros_like(prev_z_s),
                 }
-                z_s, coords = self.sample_sparse_structure(
-                    ss_cond, num_samples, sparse_structure_sampler_params, ss_cond=True
-                )
+
+                if slat_latent_prev_folder:
+                    slat_latent_path = os.path.join(slat_latent_prev_folder, f"{scene_name}_{frame_idx:04d}.npz")
+                    data = np.load(slat_latent_path)
+                    coords = torch.tensor(data["coords"]).int().to(self.device)
+                    if coords.shape[1] == 3:
+                        coords = torch.cat([torch.zeros(coords.shape[0], 1).int().to(self.device), coords], dim=1)
+                    feats = torch.tensor(data["feats"]).float().to(self.device)
+                    feats = (feats - mean) / std
+                    prev_slat = sp.SparseTensor(coords=coords, feats=feats).to(self.device)
+
+                else:
+                    prev_slat_feats = prev_slat.feats
+                    prev_slat_coords = prev_slat.coords
+                    prev_slat_feats = (prev_slat_feats - mean) / std
+                    prev_slat = sp.SparseTensor(coords=prev_slat_coords, feats=prev_slat_feats).to(self.device)
+
                 slat_cond = {
                     "cond": prev_slat,
                     "neg_cond": sp.SparseTensor(coords=prev_slat.coords, feats=torch.zeros_like(prev_slat.feats)),
                 }
+                z_s, coords = self.sample_sparse_structure(
+                    ss_cond, num_samples, sparse_structure_sampler_params, ss_cond=True
+                )
                 slat = self.sample_slat(slat_cond, coords, slat_sampler_params, slat_cond=True)
                 results_list.append(self.decode_slat(slat, formats))
                 prev_z_s = z_s

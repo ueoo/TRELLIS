@@ -23,7 +23,9 @@ from trellis.utils import postprocessing_utils, render_utils
 # /viscam/projects/4d-state-machine/TRELLIS-frompretrained/TRELLIS-image-large-flora125-3d-pretrainedvae-multi-imgflow
 project_root = "/viscam/projects/4d-state-machine"
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline_path = f"{project_root}/TRELLIS-frompretrained/TRELLIS-image-large-flora125-3d-pretrainedvae-multi-imgflow"
+pipeline_path = (
+    f"{project_root}/TRELLIS-frompretrained/TRELLIS-image-large-flora125-3d-pretrainedvae-multi-imgflow-florar0d4"
+)
 print(f"Loading pipeline from {pipeline_path}")
 pipeline = TrellisMultiImageTo3DPipeline.from_pretrained(pipeline_path)
 pipeline.cuda()
@@ -32,11 +34,11 @@ start_frame = 1
 end_frame = 90
 
 
-output_folder = f"{project_root}/TRELLIS_results/results_flora125_3d_pretrainedvae_multi_imgflow"
+output_folder = f"{project_root}/TRELLIS_results/results_flora125_3d_pretrainedvae_multi_imgflow_florar0d4"
 os.makedirs(output_folder, exist_ok=True)
 
 data_folder = "/scr/yuegao/TRELLIS_datasets/Flora125Sparse_train/renders_fixview/"
-test_scene_name = "florag024"
+test_scene_name = "floraf025"
 
 fixview_views = [3, 6, 8]
 
