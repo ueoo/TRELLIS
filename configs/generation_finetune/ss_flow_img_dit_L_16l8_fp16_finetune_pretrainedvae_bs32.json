@@ -1,7 +1,7 @@
 {
     "models": {
         "denoiser": {
-            "name": "SparseStructureLatentCondSparseStructureFlowModel",
+            "name": "SparseStructureFlowModel",
             "args": {
                 "resolution": 16,
                 "in_channels": 8,
@@ -19,19 +19,21 @@
         }
     },
     "dataset": {
-        "name": "SparseStructureLatentConditionedSparseStructureLatent",
+        "name": "ImageConditionedSparseStructureLatent",
         "args": {
             "latent_model": "ss_enc_conv3d_16l8_fp16",
+            "min_aesthetic_score": 4.5,
+            "image_size": 518,
             "pretrained_ss_dec": "microsoft/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16"
         }
     },
     "trainer": {
-        "name": "SparseStructureLatentConditionedFlowMatchingCFGTrainer",
+        "name": "ImageConditionedFlowMatchingCFGTrainer",
         "args": {
             "max_steps": 1000000,
-            "batch_size_per_gpu": 8,
+            "batch_size_per_gpu": 32,
             "batch_split": 2,
-            "num_workers": 16,
+            "num_workers": 32,
             "optimizer": {
                 "name": "AdamW",
                 "args": {
@@ -62,7 +64,11 @@
                     "std": 1.0
                 }
             },
-            "sigma_min": 1e-5
+            "sigma_min": 1e-5,
+            "image_cond_model": "dinov2_vitl14_reg",
+            "finetune_ckpt": {
+                "denoiser": "/viscam/projects/4d-state-machine/TRELLIS-image-large/ckpts/ss_flow_img_dit_L_16l8_fp16.safetensors"
+            }
         }
     }
 }

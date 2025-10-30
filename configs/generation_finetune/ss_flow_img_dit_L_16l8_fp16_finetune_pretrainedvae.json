@@ -31,9 +31,9 @@
         "name": "ImageConditionedFlowMatchingCFGTrainer",
         "args": {
             "max_steps": 1000000,
-            "batch_size_per_gpu": 4,
+            "batch_size_per_gpu": 6,
             "batch_split": 2,
-            "num_workers": 8,
+            "num_workers": 12,
             "optimizer": {
                 "name": "AdamW",
                 "args": {

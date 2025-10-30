@@ -308,7 +308,7 @@ class TrellisImageTo4DPipeline(Pipeline):
             std = torch.tensor(self.slat_normalization["std"]).to(self.device)
             mean = torch.tensor(self.slat_normalization["mean"]).to(self.device)
             batch_size = num_samples
-            for frame_idx in trange(first_frame + 1, num_frames + first_frame + 1, desc="Sampling frames"):
+            for frame_idx in trange(first_frame + 1, num_frames + first_frame, desc="Sampling frames"):
                 # print(f"Sampling frame {frame_idx} of {num_frames}")
                 if ss_latent_prev_folder:
                     ss_latent_path = os.path.join(ss_latent_prev_folder, f"{scene_name}_{frame_idx:04d}.npz")
@@ -356,6 +356,257 @@ class TrellisImageTo4DPipeline(Pipeline):
         except Exception as e:
             print(f"Error sampling frames: {e}")
             return results_list
+
+    @torch.no_grad()
+    def run_latent_distance(
+        self,
+        image: Image.Image,
+        scene_name: str,
+        num_frames: int = 120,
+        first_frame: int = 1,
+        num_samples: int = 1,
+        seed: int = 42,
+        sparse_structure_sampler_params: dict = {},
+        slat_sampler_params: dict = {},
+        preprocess_image: bool = True,
+        ss_latent_prev_folder: str = None,
+        slat_latent_prev_folder: str = None,
+        ss_latent_folder: str = None,
+        slat_latent_folder: str = None,
+    ) -> dict:
+        """
+        Generate structured latents and compute distances to ground-truth sparse structure and SLAT latents.
+
+        Args:
+            image (Image.Image): The image prompt.
+            ss_latent_folder (str): Folder containing GT sparse structure latent as npz with key 'mean'.
+            slat_latent_folder (str): Folder containing GT slat latents as npz with keys 'coords' and 'feats'.
+            scene_name (str): Scene prefix used in GT filenames.
+            num_frames (int): Number of frames to evaluate.
+            first_frame (int): Index of the first frame (used for filename alignment).
+            num_samples (int): Number of samples to generate (clamped to 1).
+            seed (int): Random seed.
+            sparse_structure_sampler_params (dict): Params for sparse structure sampler.
+            slat_sampler_params (dict): Params for structured latent sampler.
+            preprocess_image (bool): Whether to preprocess input image.
+            ss_latent_prev_folder (str): Optional folder for previous-frame sparse structure latent conditioning.
+            slat_latent_prev_folder (str): Optional folder for previous-frame slat conditioning.
+
+        Returns:
+            dict: Per-frame and overall latent distance metrics for sparse structure and SLAT.
+        """
+        if num_samples > 1:
+            num_samples = 1
+        if preprocess_image:
+            image = self.preprocess_image(image)
+        cond = self.get_cond([image])
+        torch.manual_seed(seed)
+
+        def _load_gt_ss_mean(frame_idx: int) -> torch.Tensor:
+            gt_path = os.path.join(ss_latent_folder, f"{scene_name}_{frame_idx:04d}.npz")
+            data = np.load(gt_path)
+            if "mean" not in data:
+                raise KeyError("GT sparse structure latent npz must contain 'mean'")
+            gt_mean = torch.tensor(data["mean"]).float().to(self.device)
+            return gt_mean
+
+        # Helpers
+        def _load_gt_slat(frame_idx: int) -> sp.SparseTensor:
+            gt_path = os.path.join(slat_latent_folder, f"{scene_name}_{frame_idx:04d}.npz")
+            data = np.load(gt_path)
+            coords = torch.tensor(data["coords"]).int().to(self.device)
+            if coords.shape[1] == 3:
+                coords = torch.cat([torch.zeros(coords.shape[0], 1).int().to(self.device), coords], dim=1)
+            feats = torch.tensor(data["feats"]).float().to(self.device)
+            return sp.SparseTensor(coords=coords, feats=feats)
+
+        def _compute_ss_latent_distances(
+            g_zs: torch.Tensor, gt_mean: torch.Tensor
+        ) -> Tuple[Optional[float], Optional[float]]:
+            try:
+                g_vec = g_zs.detach().float().view(-1)
+                t_vec = gt_mean.detach().float().view(-1)
+                if g_vec.numel() != t_vec.numel():
+                    # size mismatch; cannot compute
+                    return None, None
+                l2 = float(F.mse_loss(g_vec, t_vec, reduction="mean").item())
+                cos_sim = float(F.cosine_similarity(g_vec, t_vec, dim=0).item())
+                cos_dist = 1.0 - cos_sim
+                return l2, cos_dist
+            except Exception:
+                return None, None
+
+        def _compute_slat_distances(
+            g_slat: sp.SparseTensor, gt_slat: sp.SparseTensor
+        ) -> Tuple[Optional[float], Optional[float], int, int, int]:
+            gen_coords_np = g_slat.coords.detach().cpu().numpy()
+            gt_coords_np = gt_slat.coords.detach().cpu().numpy()
+
+            gen_index = {tuple(c.tolist()): i for i, c in enumerate(gen_coords_np)}
+            gen_indices: list[int] = []
+            gt_indices: list[int] = []
+            for j, c in enumerate(gt_coords_np):
+                key = tuple(c.tolist())
+                i = gen_index.get(key)
+                if i is not None:
+                    gen_indices.append(i)
+                    gt_indices.append(j)
+
+            matched = len(gen_indices)
+            if matched == 0:
+                return None, None, int(g_slat.coords.shape[0]), int(gt_slat.coords.shape[0]), 0
+
+            device = g_slat.feats.device
+            gen_idx_t = torch.tensor(gen_indices, dtype=torch.long, device=device)
+            gt_idx_t = torch.tensor(gt_indices, dtype=torch.long, device=device)
+            gen_sel = g_slat.feats.index_select(0, gen_idx_t).float()
+            gt_sel = gt_slat.feats.index_select(0, gt_idx_t).float()
+
+            mean_mse = float(F.mse_loss(gen_sel, gt_sel, reduction="mean").item())
+            cos_sim = float(F.cosine_similarity(gen_sel, gt_sel, dim=-1).mean().item())
+            cos_dist = 1.0 - cos_sim
+            return mean_mse, cos_dist, int(g_slat.coords.shape[0]), int(gt_slat.coords.shape[0]), matched
+
+        # Initial frame generation (aligned to first_frame)
+        z_s, coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params)
+        slat = self.sample_slat(cond, coords, slat_sampler_params)
+
+        per_frame = []
+        try:
+            # SS latent metrics for first frame
+            try:
+                gt_ss_mean = _load_gt_ss_mean(first_frame)
+                ss_lat_l2, ss_lat_cos = _compute_ss_latent_distances(z_s[0], gt_ss_mean)
+            except Exception as e:
+                print(f"Error computing SS latent distance for frame {first_frame}: {e}")
+                ss_lat_l2 = ss_lat_cos = None
+
+            gt_slat = _load_gt_slat(first_frame)
+            m_l2, m_cos, n_gen, n_gt, n_match = _compute_slat_distances(slat, gt_slat)
+            per_frame.append(
+                {
+                    "frame": int(first_frame),
+                    # sparse structure latent metrics
+                    "ss_latent_mean_l2": ss_lat_l2,
+                    "ss_latent_mean_cosine_distance": ss_lat_cos,
+                    # slat metrics
+                    "slat_mean_l2": m_l2,
+                    "slat_mean_cosine_distance": m_cos,
+                    "slat_num_gen_points": int(n_gen),
+                    "slat_num_gt_points": int(n_gt),
+                    "slat_num_matched_points": int(n_match),
+                    "slat_match_ratio_gen": float(n_match / n_gen) if n_gen > 0 else None,
+                    "slat_match_ratio_gt": float(n_match / n_gt) if n_gt > 0 else None,
+                }
+            )
+        except Exception as e:
+            print(f"Error computing distance for frame {first_frame}: {e}")
+
+        prev_z_s = z_s
+        prev_slat = slat
+
+        try:
+            # Precompute normalization tensors reused across frames
+            std = torch.tensor(self.slat_normalization["std"]).to(self.device)
+            mean = torch.tensor(self.slat_normalization["mean"]).to(self.device)
+
+            for frame_idx in trange(first_frame + 1, num_frames + first_frame, desc="Sampling frames for distance"):
+                if ss_latent_prev_folder:
+                    ss_latent_path = os.path.join(ss_latent_prev_folder, f"{scene_name}_{frame_idx:04d}.npz")
+                    ss_latent = np.load(ss_latent_path)
+                    ss_latent = torch.from_numpy(ss_latent["mean"]).float().to(self.device)
+                    ss_latent = ss_latent.unsqueeze(0)
+                    prev_z_s = ss_latent
+
+                ss_cond = {
+                    "cond": prev_z_s,
+                    "neg_cond": torch.zeros_like(prev_z_s),
+                }
+
+                if slat_latent_prev_folder:
+                    slat_latent_path = os.path.join(slat_latent_prev_folder, f"{scene_name}_{frame_idx:04d}.npz")
+                    data = np.load(slat_latent_path)
+                    coords = torch.tensor(data["coords"]).int().to(self.device)
+                    if coords.shape[1] == 3:
+                        coords = torch.cat([torch.zeros(coords.shape[0], 1).int().to(self.device), coords], dim=1)
+                    feats = torch.tensor(data["feats"]).float().to(self.device)
+                    feats = (feats - mean) / std
+                    prev_slat = sp.SparseTensor(coords=coords, feats=feats).to(self.device)
+                else:
+                    prev_slat_feats = prev_slat.feats
+                    prev_slat_coords = prev_slat.coords
+                    prev_slat_feats = (prev_slat_feats - mean) / std
+                    prev_slat = sp.SparseTensor(coords=prev_slat_coords, feats=prev_slat_feats).to(self.device)
+
+                slat_cond = {
+                    "cond": prev_slat,
+                    "neg_cond": sp.SparseTensor(coords=prev_slat.coords, feats=torch.zeros_like(prev_slat.feats)),
+                }
+                z_s, coords = self.sample_sparse_structure(
+                    ss_cond, num_samples, sparse_structure_sampler_params, ss_cond=True
+                )
+                slat = self.sample_slat(slat_cond, coords, slat_sampler_params, slat_cond=True)
+
+                # Compute distance to GT for this frame
+                try:
+                    # SS latent metrics
+                    try:
+                        gt_ss_mean = _load_gt_ss_mean(frame_idx)
+                        ss_lat_l2, ss_lat_cos = _compute_ss_latent_distances(z_s[0], gt_ss_mean)
+                    except Exception as e:
+                        print(f"Error computing SS latent distance for frame {frame_idx}: {e}")
+                        ss_lat_l2 = ss_lat_cos = None
+
+                    gt_slat = _load_gt_slat(frame_idx)
+                    m_l2, m_cos, n_gen, n_gt, n_match = _compute_slat_distances(slat, gt_slat)
+                    per_frame.append(
+                        {
+                            "frame": int(frame_idx),
+                            # sparse structure latent metrics
+                            "ss_latent_mean_l2": ss_lat_l2,
+                            "ss_latent_mean_cosine_distance": ss_lat_cos,
+                            # slat metrics
+                            "slat_mean_l2": m_l2,
+                            "slat_mean_cosine_distance": m_cos,
+                            "slat_num_gen_points": int(n_gen),
+                            "slat_num_gt_points": int(n_gt),
+                            "slat_num_matched_points": int(n_match),
+                            "slat_match_ratio_gen": float(n_match / n_gen) if n_gen > 0 else None,
+                            "slat_match_ratio_gt": float(n_match / n_gt) if n_gt > 0 else None,
+                        }
+                    )
+                except Exception as e:
+                    print(f"Error computing distance for frame {frame_idx}: {e}")
+
+                prev_z_s = z_s
+                prev_slat = slat
+
+        except Exception as e:
+            print(f"Error during sampling for distance computation: {e}")
+
+        # Aggregate overall metrics (only frames with valid values)
+        ss_lat_l2_vals = [f["ss_latent_mean_l2"] for f in per_frame if f.get("ss_latent_mean_l2") is not None]
+        ss_lat_cos_vals = [
+            f["ss_latent_mean_cosine_distance"]
+            for f in per_frame
+            if f.get("ss_latent_mean_cosine_distance") is not None
+        ]
+        slat_l2_vals = [f["slat_mean_l2"] for f in per_frame if f.get("slat_mean_l2") is not None]
+        slat_cos_vals = [
+            f["slat_mean_cosine_distance"] for f in per_frame if f.get("slat_mean_cosine_distance") is not None
+        ]
+
+        overall = {
+            "frames_evaluated": int(len(per_frame)),
+            # Sparse Structure Latent
+            "ss_mean_l2": float(np.mean(ss_lat_l2_vals)) if len(ss_lat_l2_vals) > 0 else None,
+            "ss_mean_cosine_distance": float(np.mean(ss_lat_cos_vals)) if len(ss_lat_cos_vals) > 0 else None,
+            # SLAT
+            "slat_mean_l2": float(np.mean(slat_l2_vals)) if len(slat_l2_vals) > 0 else None,
+            "slat_mean_cosine_distance": float(np.mean(slat_cos_vals)) if len(slat_cos_vals) > 0 else None,
+        }
+
+        return {"per_frame": per_frame, "overall": overall}
 
     @contextmanager
     def inject_sampler_multi_image(

@@ -124,16 +124,14 @@ if __name__ == "__main__":
     end = len(metadata) * (opt.rank + 1) // opt.world_size
     metadata = metadata[start:end]
 
-    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
-
     records = []
 
     if opt.instances is None:
         metadata = metadata[metadata["local_path"].notna()]
         if opt.filter_low_aesthetic_score is not None:
             metadata = metadata[metadata["aesthetic_score"] >= opt.filter_low_aesthetic_score]
-        if "fixview_rendered" in metadata.columns:
-            metadata = metadata[metadata["fixview_rendered"] == False]
+        # if "fixview_rendered" in metadata.columns:
+        #     metadata = metadata[metadata["fixview_rendered"] == False]
     else:
         if os.path.exists(opt.instances):
             with open(opt.instances, "r") as f:
@@ -142,14 +140,21 @@ if __name__ == "__main__":
             instances = opt.instances.split(",")
         metadata = metadata[metadata["sha256"].isin(instances)]
 
+    actual_num_views = opt.selected_views.count(",") + 1
     # filter out objects that are already processed
     for sha256 in copy.copy(metadata["sha256"].values):
         json_path = os.path.join(opt.output_dir, "renders_fixview", sha256, "transforms.json")
-        if os.path.exists(json_path):
+        render_folder = os.path.join(opt.output_dir, "renders_fixview", sha256)
+        rendered_frames = [f for f in os.listdir(render_folder) if f.endswith(".png")]
+        if len(rendered_frames) == actual_num_views and os.path.exists(json_path):
             records.append({"sha256": sha256, "fixview_rendered": True})
             metadata = metadata[metadata["sha256"] != sha256]
+        else:
+            print(f"Object {sha256} not fully rendered")
 
     print(f"Rendering {len(metadata)} objects with fixed views...")
+
+    metadata = metadata[opt.gpu_idx :: opt.gpu_num]
 
     # Process objects with a simple for-loop on the assigned GPU
     metadata = metadata.to_dict("records")

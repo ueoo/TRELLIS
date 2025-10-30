@@ -48,7 +48,7 @@ gpu_num=$((available_gpus * process_per_gpu))
 
 # python dataset_toolkits/encode_latent_mp.py --output_dir $data_dir --gpu_num $gpu_num
 
-# python dataset_toolkits/build_metadata.py $dataset_name --output_dir $data_dir
+python dataset_toolkits/build_metadata.py $dataset_name --output_dir $data_dir
 
 exit 0
 }

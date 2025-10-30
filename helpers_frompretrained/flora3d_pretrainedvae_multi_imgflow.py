@@ -15,7 +15,7 @@ rename_ops = {
 # Provide only adapter filenames; run dirs come from rename_ops
 model_name_to_ckpt = {
     "sparse_structure_flow_model": "denoiser_step0360000.pt",
-    "slat_flow_model": "denoiser_step0400000.pt",
+    "slat_flow_model": "denoiser_step0410000.pt",
 }
 
 

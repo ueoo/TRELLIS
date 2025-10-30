@@ -23,7 +23,8 @@ def launch_render_jobs(args):
             "OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 " "NUMEXPR_NUM_THREADS=1 BLIS_NUM_THREADS=1"
         )
         cmd = (
-            f"export {env} {cpu_env} && python inference/flora_4d_geo_gtssprevcond_test_scenes.py"
+            f"export {env} {cpu_env} && python"
+            f" inference/flora_4d_geo_gtssprevcond_test_scenes.py"
             f" --rank {args.rank} --world_size {args.world_size}"
             f" --gpu_idx {gpu_idx} --gpu_num {available_gpus}"
         )

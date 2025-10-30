@@ -24,7 +24,7 @@ def launch_render_jobs(args):
         )
         cmd = (
             f"export {env} {cpu_env} && python"
-            f" inference/flora_3d_multiview.py"
+            f" inference/flora_4d_geo_bench_gtprev_test_scenes.py"
             f" --rank {args.rank} --world_size {args.world_size}"
             f" --gpu_idx {gpu_idx} --gpu_num {available_gpus}"
         )

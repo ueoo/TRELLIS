@@ -524,7 +524,9 @@ def main(arg):
         override_material()
 
     json_file = os.path.join(arg.output_folder, "transforms.json")
-    if not os.path.exists(json_file):
+    rendered_frames = [f for f in os.listdir(arg.output_folder) if f.endswith(".png")]
+    num_rendered_frames = len(rendered_frames)
+    if not os.path.exists(json_file) or num_rendered_frames < len(json.loads(arg.views)):
         # Create a list of views
         to_export = {
             "aabb": [[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],

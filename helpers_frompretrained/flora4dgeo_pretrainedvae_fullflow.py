@@ -19,10 +19,10 @@ rename_ops = {
 }
 
 model_name_to_ckpt = {
-    "sparse_structure_flow_model": "denoiser_step0350000.pt",
-    "sparse_structure_cond_sparse_structure_flow_model": "denoiser_step0370000.pt",
-    "slat_flow_model": "denoiser_step0560000.pt",
-    "slat_cond_slat_flow_model": "denoiser_step0730000.pt",
+    "sparse_structure_flow_model": "denoiser_step0480000.pt",
+    "sparse_structure_cond_sparse_structure_flow_model": "denoiser_step0540000.pt",
+    "slat_flow_model": "denoiser_step0770000.pt",
+    "slat_cond_slat_flow_model": "denoiser_step1000000.pt",
 }
 
 build_folder(

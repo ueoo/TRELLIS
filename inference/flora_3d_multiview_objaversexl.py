@@ -41,17 +41,16 @@ def main(args):
     output_folder = os.path.join(results_root, f"results_{finetune_name.replace('-', '_')}")
     print(f"Saving outputs to {output_folder}")
 
-    data_root = "/scr2/yuegao/TRELLIS_datasets/Flora125Sparse_train"
+    data_root = "/scr/yuegao/TRELLIS_datasets/ObjaverseXL_sketchfab_Flora125Dense"
     # Data config
     renders_root = os.path.join(data_root, "renders_fixview")
 
     scene_names = [
-        # "floraa015",
-        "floraa025",
-        # "florab015",
-        # "florae015",
-        # "floraf015",
-        # "florag015",
+        "000045aad61c956b45fc468b2b2ec954636e5f647f1c1995854d46ecaa525e10",
+        "000060a495b381230860ca7315a1b585fabc651cf0833b72b6f481771cca4277",
+        "0000a09b3b22da52cd0a55918c511184e5bfe4adc846e7a522bc6b227a1781a3",
+        "0000b62fec1d42b484fcf80a248c6d65afebe02e021e495db051d5b47d001a32",
+        "0001aa38f9609bf802f55536e9a3b3b1ff4ababe22ea6ae6a3258b793d59ceff",
     ]
 
     # Partition work across processes and GPUs
@@ -62,7 +61,7 @@ def main(args):
 
     scene_names = scene_names[args.gpu_idx :: args.gpu_num]
 
-    fixview_views = [3, 6, 8]
+    fixview_views = [0, 1, 2]
 
     for scene_name in tqdm(
         scene_names,
@@ -71,42 +70,27 @@ def main(args):
         position=int(args.gpu_idx),
         leave=True,
     ):
-        all_videos = []
-        sub_folder = f"sample_gs_{args.num_frames}_test_scene_{scene_name}"
+        sub_folder = f"sample_gs_objaversexl_scene_{scene_name}"
         os.makedirs(os.path.join(output_folder, sub_folder), exist_ok=True)
 
-        for frame_idx in trange(
-            args.first_frame, args.first_frame + args.num_frames, desc="Processing frames", leave=False
-        ):
-            # Load multi-view images for this frame
-            input_frames = []
-            for view in fixview_views:
-                input_rel = f"{scene_name}_{frame_idx:04d}/{view:03d}.png"
-                image_path = os.path.join(renders_root, input_rel)
-                image = Image.open(image_path)
-                input_frames.append(image)
+        # Load multi-view images for this frame
+        input_frames = []
+        for view in fixview_views:
+            input_rel = f"{scene_name}/{view:03d}.png"
+            image_path = os.path.join(renders_root, input_rel)
+            image = Image.open(image_path)
+            input_frames.append(image)
 
-            # Run the pipeline with multi-image conditioning
-            outputs = pipeline.run(input_frames, seed=1, formats=["gaussian"])
+        # Run the pipeline with multi-image conditioning
+        outputs = pipeline.run(input_frames, seed=1, formats=["gaussian"])
 
-            # Render color video for the generated Gaussian scene
-            video = render_utils.render_video(outputs["gaussian"][0])["color"]
-            imageio.mimsave(
-                os.path.join(output_folder, sub_folder, f"frame_{frame_idx:03d}.mp4"),
-                video,
-                fps=30,
-            )
-            all_videos.append(video)
-
-        # Save per-view videos across the generated frames
-        num_views = len(all_videos[0])
-        for view_idx in trange(num_views, desc="Saving views", leave=False):
-            cur_view_videos = [all_videos[fidx][view_idx] for fidx in range(len(all_videos))]
-            imageio.mimsave(
-                os.path.join(output_folder, sub_folder, f"view_{view_idx:03d}.mp4"),
-                cur_view_videos,
-                fps=30,
-            )
+        # Render color video for the generated Gaussian scene
+        video = render_utils.render_video(outputs["gaussian"][0])["color"]
+        imageio.mimsave(
+            os.path.join(output_folder, sub_folder, f"results.mp4"),
+            video,
+            fps=30,
+        )
 
 
 if __name__ == "__main__":
@@ -115,8 +99,6 @@ if __name__ == "__main__":
     parser.add_argument("--gpu_num", type=int, default=1)
     parser.add_argument("--rank", type=int, default=0)
     parser.add_argument("--world_size", type=int, default=1)
-    parser.add_argument("--first_frame", type=int, default=1)
-    parser.add_argument("--num_frames", type=int, default=90)
     args = parser.parse_args()
 
     main(args)
