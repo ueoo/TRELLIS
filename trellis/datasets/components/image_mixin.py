@@ -1,98 +1,10 @@
 import json
 import os
 
-from abc import abstractmethod
-from typing import *
-
 import numpy as np
-import pandas as pd
 import torch
 
 from PIL import Image
-from torch.utils.data import Dataset
-
-from ..modules import sparse as sp
-
-
-class StandardDatasetBase(Dataset):
-    """
-    Base class for standard datasets.
-
-    Args:
-        roots (str): paths to the dataset
-    """
-
-    def __init__(
-        self,
-        roots: str,
-    ):
-        super().__init__()
-        self.roots = roots.split(",")
-        self.instances = []
-        self.metadata = pd.DataFrame()
-
-        self._stats = {}
-        for root in self.roots:
-            key = os.path.basename(root)
-            self._stats[key] = {}
-            metadata = pd.read_csv(os.path.join(root, "metadata.csv"))
-            self._stats[key]["Total"] = len(metadata)
-            metadata, stats = self.filter_metadata(metadata)
-            self._stats[key].update(stats)
-            self.instances.extend([(root, sha256) for sha256 in metadata["sha256"].values])
-            metadata.set_index("sha256", inplace=True)
-            self.metadata = pd.concat([self.metadata, metadata])
-
-    @abstractmethod
-    def filter_metadata(self, metadata: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
-        pass
-
-    @abstractmethod
-    def get_instance(self, root: str, instance: str) -> Dict[str, Any]:
-        pass
-
-    def __len__(self):
-        return len(self.instances)
-
-    def __getitem__(self, index) -> Dict[str, Any]:
-        try:
-            root, instance = self.instances[index]
-            return self.get_instance(root, instance)
-        except Exception as e:
-            print(e)
-            return self.__getitem__(np.random.randint(0, len(self)))
-
-    def __str__(self):
-        lines = []
-        lines.append(self.__class__.__name__)
-        lines.append(f"  - Total instances: {len(self)}")
-        lines.append(f"  - Sources:")
-        for key, stats in self._stats.items():
-            lines.append(f"    - {key}:")
-            for k, v in stats.items():
-                lines.append(f"      - {k}: {v}")
-        return "\n".join(lines)
-
-
-class TextConditionedMixin:
-    def __init__(self, roots, **kwargs):
-        super().__init__(roots, **kwargs)
-        self.captions = {}
-        for instance in self.instances:
-            sha256 = instance[1]
-            self.captions[sha256] = json.loads(self.metadata.loc[sha256]["captions"])
-
-    def filter_metadata(self, metadata):
-        metadata, stats = super().filter_metadata(metadata)
-        metadata = metadata[metadata["captions"].notna()]
-        stats["With captions"] = len(metadata)
-        return metadata, stats
-
-    def get_instance(self, root, instance):
-        pack = super().get_instance(root, instance)
-        text = np.random.choice(self.captions[instance])
-        pack["cond"] = text
-        return pack
 
 
 class ImageConditionedMixin:
@@ -228,10 +140,9 @@ class FloraResampleMixin:
 
 
 class MultiImageConditionedMixin:
-    def __init__(self, roots, *, image_size=518, view_count=3, flora_ratio=0.0, **kwargs):
+    def __init__(self, roots, *, image_size=518, view_count=3, **kwargs):
         self.image_size = image_size
         self.view_count = view_count
-        # flora_ratio is handled by FloraResampleMixin if present in MRO
         super().__init__(roots, **kwargs)
 
     def filter_metadata(self, metadata):
@@ -281,51 +192,6 @@ class MultiImageConditionedMixin:
             image = image * alpha.unsqueeze(0)
             multi_view_images.append(image)
         pack["cond"] = torch.stack(multi_view_images, dim=-1)
-        return pack
-
-
-class SparseStructureLatentConditionedMixin:
-    def __init__(self, roots, **kwargs):
-        super().__init__(roots, **kwargs)
-
-    def filter_metadata(self, metadata):
-        metadata, stats = super().filter_metadata(metadata)
-        metadata = metadata[metadata["sha256_prev"].notna()]
-        stats["With ss prev"] = len(metadata)
-        return metadata, stats
-
-    def get_instance(self, root, instance):
-        pack = super().get_instance(root, instance)
-        # in ss_latents_prev, the name of the file is the sha256 of the previous instance
-        latent = np.load(os.path.join(root, "ss_latents_prev", self.latent_model, f"{instance}.npz"))
-        z = torch.tensor(latent["mean"]).float()
-        if self.normalization is not None:
-            z = (z - self.mean) / self.std
-
-        pack["cond"] = z
-
-        return pack
-
-
-class SLatConditionedMixin:
-    def __init__(self, roots, **kwargs):
-        super().__init__(roots, **kwargs)
-
-    def filter_metadata(self, metadata):
-        metadata, stats = super().filter_metadata(metadata)
-        metadata = metadata[metadata[f"sha256_prev"].notna()]
-        stats["With ss prev"] = len(metadata)
-        return metadata, stats
-
-    def get_instance(self, root, instance):
-        pack = super().get_instance(root, instance)
-        data = np.load(os.path.join(root, "latents_prev", self.latent_model, f"{instance}.npz"))
-        coords = torch.tensor(data["coords"]).int()
-        feats = torch.tensor(data["feats"]).float()
-        if self.normalization is not None:
-            feats = (feats - self.mean) / self.std
-        cond = sp.SparseTensor(coords=coords, feats=feats)
-        pack["cond"] = cond
         return pack
 
 

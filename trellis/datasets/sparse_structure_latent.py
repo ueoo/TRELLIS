@@ -233,9 +233,17 @@ class ImageAllConditionedSparseStructureLatent(ImageAllConditionedMixin, SparseS
     pass
 
 
-class MultiImageConditionedSparseStructureLatent(
+class MultiImageResampleConditionedSparseStructureLatent(
     FloraResampleMixin, MultiImageConditionedMixin, SparseStructureLatent
 ):
+    """
+    Multi-image-resample-conditioned sparse structure dataset
+    """
+
+    pass
+
+
+class MultiImageConditionedSparseStructureLatent(MultiImageConditionedMixin, SparseStructureLatent):
     """
     Multi-image-conditioned sparse structure dataset
     """

@@ -26,9 +26,12 @@ class SparseStructureLatentConditionedMixin:
         """
         Prepare for training.
         """
-        if hasattr(super(SparseStructureLatentConditionedMixin, SparseStructureLatentConditionedMixin), "prepare_for_training"):
-            super(SparseStructureLatentConditionedMixin, SparseStructureLatentConditionedMixin).prepare_for_training(**kwargs)
-
+        if hasattr(
+            super(SparseStructureLatentConditionedMixin, SparseStructureLatentConditionedMixin), "prepare_for_training"
+        ):
+            super(SparseStructureLatentConditionedMixin, SparseStructureLatentConditionedMixin).prepare_for_training(
+                **kwargs
+            )
 
     def get_cond(self, cond, **kwargs):
         """

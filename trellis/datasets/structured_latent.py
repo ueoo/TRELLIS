@@ -280,7 +280,15 @@ class ImageAllConditionedSLat(ImageAllConditionedMixin, SLat):
     pass
 
 
-class MultiImageConditionedSLat(FloraResampleMixin, MultiImageConditionedMixin, SLat):
+class MultiImageResampleConditionedSLat(FloraResampleMixin, MultiImageConditionedMixin, SLat):
+    """
+    Multi-image-conditioned structured latent dataset
+    """
+
+    pass
+
+
+class MultiImageConditionedSLat(MultiImageConditionedMixin, SLat):
     """
     Multi-image-conditioned structured latent dataset
     """
